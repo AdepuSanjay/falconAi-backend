@@ -57,11 +57,15 @@ app.get("/check-slides", (req, res) => {
 });
 
 // ✅ Generate slides using Google Gemini
+
+
 app.post("/generate-ppt", async (req, res) => {
     try {
         const { topic, slideCount } = req.body;
+
         if (!topic) return res.status(400).json({ error: "Topic is required" });
-        if (!slideCount || slideCount < 1 || slideCount > 13) return res.status(400).json({ error: "Slide count must be between 1 and 13" });
+        if (!slideCount || slideCount < 1 || slideCount > 13)
+            return res.status(400).json({ error: "Slide count must be between 1 and 13" });
 
         const slideStructure = [
             { title: "Title Slide", content: ["Title: Clear & Engaging", "Subtitle: Brief overview"] },
@@ -71,21 +75,43 @@ app.post("/generate-ppt", async (req, res) => {
             { title: "Challenges & Future Trends", content: ["Limitations", "Future Scope"] }
         ];
 
+        // Slice structure based on requested slide count
         const selectedSlides = slideStructure.slice(0, slideCount);
-        const slideRequestText = selectedSlides.map((s, i) => `**Slide ${i + 1}: ${s.title}**\n${s.content.map(c => `- ${c}`).join("\n")}`).join("\n\n");
+        const slideRequestText = selectedSlides.map((s, i) =>
+            `**Slide ${i + 1}: ${s.title}**\n${s.content.map(c => `- ${c}`).join("\n")}`
+        ).join("\n\n");
 
-        const prompt = `Create a PowerPoint presentation on "${topic}" with ${slideCount} slides.
-        - Each slide must have detailed bullet points.
-        - If the topic is related to programming, include code snippets.
-        - Format slides with bold headers and bullet points.\n\n${slideRequestText}`;
+        // Improved prompt to enforce correct slide count and format
+        const prompt = `Generate exactly ${slideCount} slides on "${topic}" formatted as follows:
+        - Each slide starts with "**Slide X: [Title]**".
+        - Each slide must have 3-5 bullet points related to the topic.
+        - If the topic is related to programming, include relevant code snippets.
+        - No extra slides, summaries, or conclusions beyond the requested count.
 
-        const response = await axios.post(GEMINI_API_URL, { contents: [{ parts: [{ text: prompt }] }] }, { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY }, timeout: 90000 });
+        Example:
+        **Slide 1: Introduction**
+        - Definition of JavaScript
+        - Used for web development
+        - Runs in browsers and servers
+        
+        Now generate the requested slides:\n\n${slideRequestText}`;
+
+        const response = await axios.post(GEMINI_API_URL, {
+            contents: [{ parts: [{ text: prompt }] }]
+        }, {
+            headers: { "Content-Type": "application/json" },
+            params: { key: GOOGLE_GEMINI_API_KEY },
+            timeout: 90000
+        });
 
         const content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        slideData[topic] = content.split("\n").filter(line => line.trim() !== "");
-        res.json({ message: "Slides generated successfully", slides: slideData[topic] });
+        // Split into slide data and enforce max slide limit
+        let slides = content.split("\n").filter(line => line.trim() !== "");
+        slides = slides.slice(0, slideCount * 3); // Assuming ~3 lines per slide
+
+        res.json({ message: "Slides generated successfully", slides });
 
     } catch (error) {
         console.error("Error generating slides:", error.message);
