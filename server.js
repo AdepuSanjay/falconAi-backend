@@ -59,6 +59,7 @@ app.get("/check-slides", (req, res) => {
 // ✅ Generate slides using Google Gemini
 
 
+
 app.post("/generate-ppt", async (req, res) => {
     try {
         const { topic, slideCount } = req.body;
@@ -67,34 +68,30 @@ app.post("/generate-ppt", async (req, res) => {
         if (!slideCount || slideCount < 1 || slideCount > 13)
             return res.status(400).json({ error: "Slide count must be between 1 and 13" });
 
-        const slideStructure = [
-            { title: "Title Slide", content: ["Title: Clear & Engaging", "Subtitle: Brief overview"] },
-            { title: "Introduction", content: ["Definition & Importance", "Key Statistics"] },
-            { title: "Key Concepts", content: ["Explain key points", "Provide real-world examples"] },
-            { title: "Applications", content: ["Industry Use Cases", "Practical Examples"] },
-            { title: "Challenges & Future Trends", content: ["Limitations", "Future Scope"] }
-        ];
+        // Define strict slide structure
+        const prompt = `Create a PowerPoint presentation on "${topic}" with exactly ${slideCount} slides.
 
-        // Slice structure based on requested slide count
-        const selectedSlides = slideStructure.slice(0, slideCount);
-        const slideRequestText = selectedSlides.map((s, i) =>
-            `**Slide ${i + 1}: ${s.title}**\n${s.content.map(c => `- ${c}`).join("\n")}`
-        ).join("\n\n");
-
-        // Improved prompt to enforce correct slide count and format
-        const prompt = `Generate exactly ${slideCount} slides on "${topic}" formatted as follows:
-        - Each slide starts with "**Slide X: [Title]**".
-        - Each slide must have 3-5 bullet points related to the topic.
-        - If the topic is related to programming, include relevant code snippets.
-        - No extra slides, summaries, or conclusions beyond the requested count.
-
-        Example:
-        **Slide 1: Introduction**
-        - Definition of JavaScript
-        - Used for web development
-        - Runs in browsers and servers
+        - Each slide must follow this format:
+          **Slide X: [Title]**
+          - Bullet points with key concepts (3-5 per slide).
+          - For programming topics, include relevant code snippets.
+        - Do not generate more or fewer slides than requested.
+        - Do not add extra summaries or unnecessary text.
         
-        Now generate the requested slides:\n\n${slideRequestText}`;
+        Example:
+        
+        **Slide 1: Title Slide**
+        - **Title:** ${topic}
+        - **Subtitle:** An Introduction
+        - **Your Name**
+        - **Date**
+
+        **Slide 2: Introduction**
+        - Define what "${topic}" is.
+        - Explain its importance in the real world.
+        - Give a brief overview of its key aspects.
+
+        Now, generate the slides in this format.`;
 
         const response = await axios.post(GEMINI_API_URL, {
             contents: [{ parts: [{ text: prompt }] }]
@@ -107,9 +104,25 @@ app.post("/generate-ppt", async (req, res) => {
         const content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        // Split into slide data and enforce max slide limit
+        // Process and structure slides correctly
         let slides = content.split("\n").filter(line => line.trim() !== "");
-        slides = slides.slice(0, slideCount * 3); // Assuming ~3 lines per slide
+
+        // Ensure the number of slides does not exceed the requested count
+        const slideSections = [];
+        let currentSlide = [];
+
+        slides.forEach(line => {
+            if (line.startsWith("**Slide")) {
+                if (currentSlide.length > 0) slideSections.push(currentSlide);
+                currentSlide = [line];
+            } else {
+                currentSlide.push(line);
+            }
+        });
+        if (currentSlide.length > 0) slideSections.push(currentSlide);
+
+        // Trim slides to requested count
+        slides = slideSections.slice(0, slideCount).map(slide => slide.join("\n"));
 
         res.json({ message: "Slides generated successfully", slides });
 
@@ -118,6 +131,7 @@ app.post("/generate-ppt", async (req, res) => {
         res.status(500).json({ error: "Failed to generate slides" });
     }
 });
+
 
 // ✅ Add, Edit, and Delete Slides
 app.post("/edit-ppt", (req, res) => {
