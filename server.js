@@ -133,24 +133,25 @@ app.post("/generate-ppt", async (req, res) => {
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
         const topic = req.params.topic;
-        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
-        const pptPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pptx`;
+        if (!slideData[topic]) return res.status(404).json({ error: "No slides found" });
 
-        if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found for this topic" });
-
-        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         let pptx = new pptxgen();
-
-        slides.forEach((slide, index) => {
+        slideData[topic].forEach((slide, index) => {
             let pptSlide = pptx.addSlide();
-            pptSlide.addText(`Slide ${index + 1}: ${slide.title}`, { x: 1, y: 1, fontSize: 24, bold: true });
-            slide.content.forEach((text, i) => {
-                pptSlide.addText(text, { x: 1, y: 1.5 + i * 0.5, fontSize: 18 });
+            pptSlide.addText(`Slide ${index + 1}: ${slide.title}`, { x: 1, y: 0.5, fontSize: 24, bold: true });
+            slide.content.forEach((point, i) => {
+                pptSlide.addText(`- ${point}`, { x: 1, y: 1 + i * 0.5, fontSize: 18 });
             });
         });
 
-        await pptx.writeFile(pptPath);
-        res.download(pptPath);
+        const pptBuffer = await pptx.write("arraybuffer"); // Generate PPT as a buffer
+
+        res.set({
+            "Content-Disposition": `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`,
+            "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        });
+
+        res.send(Buffer.from(pptBuffer));
 
     } catch (error) {
         console.error("Error generating PPT:", error.message);
