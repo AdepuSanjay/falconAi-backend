@@ -58,8 +58,6 @@ app.get("/check-slides", (req, res) => {
 
 // ✅ Generate slides using Google Gemini
 
-
-
 app.post("/generate-ppt", async (req, res) => {
     try {
         const { topic, slideCount } = req.body;
@@ -68,30 +66,19 @@ app.post("/generate-ppt", async (req, res) => {
         if (!slideCount || slideCount < 1 || slideCount > 13)
             return res.status(400).json({ error: "Slide count must be between 1 and 13" });
 
-        // Define strict slide structure
         const prompt = `Create a PowerPoint presentation on "${topic}" with exactly ${slideCount} slides.
+        - Each slide should have:
+          - A **title** in the format "**Slide X: [Title]**"
+          - 3-5 key bullet points per slide.
+          - Code snippets for programming topics.
 
-        - Each slide must follow this format:
-          **Slide X: [Title]**
-          - Bullet points with key concepts (3-5 per slide).
-          - For programming topics, include relevant code snippets.
-        - Do not generate more or fewer slides than requested.
-        - Do not add extra summaries or unnecessary text.
-        
         Example:
+        **Slide 1: Introduction to Java**
+        - Java is an Object-Oriented Programming Language.
+        - Platform-independent ("Write Once, Run Anywhere").
+        - Used in enterprise applications, Android development.
         
-        **Slide 1: Title Slide**
-        - **Title:** ${topic}
-        - **Subtitle:** An Introduction
-        - **Your Name**
-        - **Date**
-
-        **Slide 2: Introduction**
-        - Define what "${topic}" is.
-        - Explain its importance in the real world.
-        - Give a brief overview of its key aspects.
-
-        Now, generate the slides in this format.`;
+        Generate the slides strictly in this format.`;
 
         const response = await axios.post(GEMINI_API_URL, {
             contents: [{ parts: [{ text: prompt }] }]
@@ -104,25 +91,21 @@ app.post("/generate-ppt", async (req, res) => {
         const content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        // Process and structure slides correctly
-        let slides = content.split("\n").filter(line => line.trim() !== "");
+        // **Fix Parsing: Extract slides properly**
+        let slides = [];
+        let currentSlide = null;
 
-        // Ensure the number of slides does not exceed the requested count
-        const slideSections = [];
-        let currentSlide = [];
-
-        slides.forEach(line => {
+        content.split("\n").forEach(line => {
+            line = line.trim();
             if (line.startsWith("**Slide")) {
-                if (currentSlide.length > 0) slideSections.push(currentSlide);
-                currentSlide = [line];
-            } else {
-                currentSlide.push(line);
+                if (currentSlide) slides.push(currentSlide);
+                currentSlide = { title: line.replace(/\*\*Slide \d+:?\*\*/g, "").trim(), content: [] };
+            } else if (currentSlide && line !== "") {
+                currentSlide.content.push(line);
             }
         });
-        if (currentSlide.length > 0) slideSections.push(currentSlide);
 
-        // Trim slides to requested count
-        slides = slideSections.slice(0, slideCount).map(slide => slide.join("\n"));
+        if (currentSlide) slides.push(currentSlide);
 
         res.json({ message: "Slides generated successfully", slides });
 
@@ -131,7 +114,6 @@ app.post("/generate-ppt", async (req, res) => {
         res.status(500).json({ error: "Failed to generate slides" });
     }
 });
-
 
 // ✅ Add, Edit, and Delete Slides
 app.post("/edit-ppt", (req, res) => {
