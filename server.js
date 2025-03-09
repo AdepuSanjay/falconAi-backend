@@ -29,6 +29,34 @@ const slideData = {}; // Store slides in memory
 
 const upload = multer({ dest: "uploads/" });
 
+
+// ✅ AI-Powered Search using Google Gemini API
+app.post("/ai-search", async (req, res) => {
+    try {
+        const { query } = req.body;
+        if (!query) return res.status(400).json({ error: "Query is required" });
+
+        // Gemini API Call
+        const response = await axios.post(
+            GEMINI_API_URL,
+            { contents: [{ parts: [{ text: query }] }] },
+            { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } }
+        );
+
+        // Extracting AI-generated response
+        const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";
+
+        res.json({ query, response: aiResponse });
+
+    } catch (error) {
+        console.error("AI Search Error:", error.message);
+        res.status(500).json({ error: "Failed to fetch search results" });
+    }
+});
+
+
+
+
 // ✅ Convert speech to text using Google Gemini
 app.post("/speech-to-text", upload.single("audio"), async (req, res) => {
     try {
