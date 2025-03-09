@@ -8,44 +8,35 @@ const PDFDocument = require("pdfkit");
 require("dotenv").config();
 
 const app = express();
-app.use(cors({
-  origin: "http://localhost:5173",
-  methods: ["GET", "POST"]
-}));
+app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
 app.use(express.json());
 
 // Ensure 'generated_ppts' folder exists
 if (!fs.existsSync("./generated_ppts")) fs.mkdirSync("./generated_ppts");
 
-// Load API key
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 if (!GOOGLE_GEMINI_API_KEY) {
-    console.error("Error: GOOGLE_GEMINI_API_KEY is missing in .env file.");
+    console.error("❌ Error: GOOGLE_GEMINI_API_KEY is missing in .env file.");
     process.exit(1);
 }
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
-const slideData = {}; // Store slides in memory
-
 const upload = multer({ dest: "uploads/" });
 
 
-// ✅ AI-Powered Search using Google Gemini API
+// ✅ AI-Powered Search using Google Gemini
 app.post("/ai-search", async (req, res) => {
     try {
         const { query } = req.body;
         if (!query) return res.status(400).json({ error: "Query is required" });
 
-        // Gemini API Call
         const response = await axios.post(
             GEMINI_API_URL,
             { contents: [{ parts: [{ text: query }] }] },
             { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } }
         );
 
-        // Extracting AI-generated response
         const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";
-
         res.json({ query, response: aiResponse });
 
     } catch (error) {
@@ -55,9 +46,7 @@ app.post("/ai-search", async (req, res) => {
 });
 
 
-
-
-// ✅ Convert speech to text using Google Gemini
+// ✅ Convert Speech to Text using Google Gemini
 app.post("/speech-to-text", upload.single("audio"), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
@@ -66,7 +55,7 @@ app.post("/speech-to-text", upload.single("audio"), async (req, res) => {
         const base64Audio = audioBuffer.toString("base64");
 
         const transcript = await axios.post(GEMINI_API_URL, {
-            contents: [{ parts: [{ text: "Convert this speech to text: ", inline_data: { mime_type: "audio/wav", data: base64Audio } }] }]
+            contents: [{ parts: [{ text: "Convert this speech to text:", inline_data: { mime_type: "audio/wav", data: base64Audio } }] }]
         }, { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } });
 
         const text = transcript.data.candidates?.[0]?.content?.parts?.[0]?.text || "No text extracted.";
@@ -78,19 +67,23 @@ app.post("/speech-to-text", upload.single("audio"), async (req, res) => {
     }
 });
 
-// ✅ Check slides before downloading
+
+// ✅ Check Slides Before Downloading
 app.get("/check-slides", (req, res) => {
     const topic = req.query.topic;
-    if (!topic || !slideData[topic]) return res.status(404).json({ error: "No slides found for this topic" });
-    res.json({ topic, slides: slideData[topic] });
+    const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "No slides found for this topic" });
+
+    const slides = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    res.json({ topic, slides });
 });
 
-// ✅ Generate slides using Google Gemini
 
+// ✅ Generate Slides using Google Gemini
 app.post("/generate-ppt", async (req, res) => {
     try {
         const { topic, slideCount } = req.body;
-
         if (!topic) return res.status(400).json({ error: "Topic is required" });
         if (!slideCount || slideCount < 1 || slideCount > 13)
             return res.status(400).json({ error: "Slide count must be between 1 and 13" });
@@ -100,27 +93,17 @@ app.post("/generate-ppt", async (req, res) => {
           - A **title** in the format "**Slide X: [Title]**"
           - 3-5 key bullet points per slide.
           - Code snippets for programming topics.
+        Format strictly as:
+        **Slide 1: [Title]**
+        - Point 1
+        - Point 2`;
 
-        Example:
-        **Slide 1: Introduction to Java**
-        - Java is an Object-Oriented Programming Language.
-        - Platform-independent ("Write Once, Run Anywhere").
-        - Used in enterprise applications, Android development.
-        
-        Generate the slides strictly in this format.`;
-
-        const response = await axios.post(GEMINI_API_URL, {
-            contents: [{ parts: [{ text: prompt }] }]
-        }, {
-            headers: { "Content-Type": "application/json" },
-            params: { key: GOOGLE_GEMINI_API_KEY },
-            timeout: 90000
-        });
+        const response = await axios.post(GEMINI_API_URL, { contents: [{ parts: [{ text: prompt }] }] },
+            { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } });
 
         const content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        // **Fix Parsing: Extract slides properly**
         let slides = [];
         let currentSlide = null;
 
@@ -136,6 +119,7 @@ app.post("/generate-ppt", async (req, res) => {
 
         if (currentSlide) slides.push(currentSlide);
 
+        fs.writeFileSync(`./generated_ppts/${topic.replace(/\s/g, "_")}.json`, JSON.stringify(slides, null, 2));
         res.json({ message: "Slides generated successfully", slides });
 
     } catch (error) {
@@ -144,93 +128,65 @@ app.post("/generate-ppt", async (req, res) => {
     }
 });
 
-// ✅ Add, Edit, and Delete Slides
-app.post("/edit-ppt", (req, res) => {
-    try {
-        const { topic, action, newSlide, position } = req.body;
-        if (!topic) return res.status(400).json({ error: "Topic is required" });
 
-        slideData[topic] = slideData[topic] || [];
-
-        switch (action) {
-            case "add":
-                if (!newSlide) return res.status(400).json({ error: "New slide content required" });
-                if (position === "top") slideData[topic].unshift(newSlide);
-                else if (position === "bottom") slideData[topic].push(newSlide);
-                else if (!isNaN(position) && position >= 0 && position <= slideData[topic].length) slideData[topic].splice(position, 0, newSlide);
-                else return res.status(400).json({ error: "Invalid position" });
-                break;
-
-            case "edit":
-                if (position < 0 || position >= slideData[topic].length) return res.status(400).json({ error: "Invalid slide position" });
-                slideData[topic][position] = newSlide;
-                break;
-
-            case "delete":
-                if (position < 0 || position >= slideData[topic].length) return res.status(400).json({ error: "Invalid slide position" });
-                slideData[topic].splice(position, 1);
-                break;
-
-            default:
-                return res.status(400).json({ error: "Invalid action" });
-        }
-
-        res.json({ message: "Slides updated successfully", slides: slideData[topic] });
-
-    } catch (error) {
-        res.status(500).json({ error: "Failed to update slides" });
-    }
-});
-
-// ✅ Download slides as PPTX
+// ✅ Download PPTX
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
         const topic = req.params.topic;
-        if (!slideData[topic]) return res.status(404).json({ error: "No slides found" });
+        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+        const pptPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pptx`;
 
+        if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found for this topic" });
+
+        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         let pptx = new pptxgen();
-        slideData[topic].forEach((text, index) => {
-            let slide = pptx.addSlide();
-            slide.addText(`Slide ${index + 1}`, { x: 1, y: 1, fontSize: 24, bold: true });
-            slide.addText(text, { x: 1, y: 2, fontSize: 18 });
+
+        slides.forEach((slide, index) => {
+            let pptSlide = pptx.addSlide();
+            pptSlide.addText(`Slide ${index + 1}: ${slide.title}`, { x: 1, y: 1, fontSize: 24, bold: true });
+            slide.content.forEach((text, i) => {
+                pptSlide.addText(text, { x: 1, y: 1.5 + i * 0.5, fontSize: 18 });
+            });
         });
 
-        const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pptx`;
-        await pptx.writeFile(filePath);
-
-        res.download(filePath);
+        await pptx.writeFile(pptPath);
+        res.download(pptPath);
 
     } catch (error) {
+        console.error("Error generating PPT:", error.message);
         res.status(500).json({ error: "Failed to generate PPT" });
     }
 });
 
-// ✅ Download slides as PDF
+
+// ✅ Download PDF
 app.get("/download-pdf/:topic", (req, res) => {
     try {
         const topic = req.params.topic;
-        if (!slideData[topic]) return res.status(404).json({ error: "No slides found" });
+        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+        const pdfPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pdf`;
 
+        if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found for this topic" });
+
+        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         const doc = new PDFDocument();
-        const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pdf`;
-
-        doc.pipe(fs.createWriteStream(filePath));
+        doc.pipe(fs.createWriteStream(pdfPath));
         doc.fontSize(24).text(topic, { underline: true });
 
-        slideData[topic].forEach((text, index) => {
-            doc.fontSize(18).text(`Slide ${index + 1}:`, { underline: true });
-            doc.fontSize(14).text(text);
+        slides.forEach((slide, index) => {
+            doc.fontSize(18).text(`Slide ${index + 1}: ${slide.title}`, { underline: true });
+            slide.content.forEach(text => doc.fontSize(14).text(text));
             doc.moveDown();
         });
 
         doc.end();
-        res.download(filePath);
+        res.download(pdfPath);
 
     } catch (error) {
+        console.error("Error generating PDF:", error.message);
         res.status(500).json({ error: "Failed to generate PDF" });
     }
 });
 
 // Start Server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(5000, () => console.log(`✅ Server running on port 5000`));
