@@ -161,6 +161,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
 
 // ✅ Download PDF
+// ✅ Fixed Download PDF Endpoint
 app.get("/download-pdf/:topic", (req, res) => {
     try {
         const topic = req.params.topic;
@@ -170,14 +171,22 @@ app.get("/download-pdf/:topic", (req, res) => {
         if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found for this topic" });
 
         const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-        const doc = new PDFDocument();
-        doc.pipe(fs.createWriteStream(pdfPath));
-        doc.fontSize(24).text(topic, { underline: true });
+        const doc = new PDFDocument({ autoFirstPage: false });
 
+        // Stream to the PDF file
+        doc.pipe(fs.createWriteStream(pdfPath));
+
+        // Generate each slide on a new page
         slides.forEach((slide, index) => {
-            doc.fontSize(18).text(`Slide ${index + 1}: ${slide.title}`, { underline: true });
-            slide.content.forEach(text => doc.fontSize(14).text(text));
+            doc.addPage(); // Ensure a new page for each slide
+            doc.fontSize(24).text(slide.title, { underline: true, align: "center" });
+
+            // Adding slide content
             doc.moveDown();
+            slide.content.forEach(text => {
+                doc.fontSize(14).text(text, { align: "left" });
+                doc.moveDown();
+            });
         });
 
         doc.end();
@@ -188,6 +197,5 @@ app.get("/download-pdf/:topic", (req, res) => {
         res.status(500).json({ error: "Failed to generate PDF" });
     }
 });
-
 // Start Server
 app.listen(5000, () => console.log(`✅ Server running on port 5000`));
