@@ -153,7 +153,11 @@ app.get("/download-ppt/:topic", async (req, res) => {
         const topic = req.params.topic;
         const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
 
-        if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found" });
+        // ✅ Check if file exists
+        if (!fs.existsSync(jsonPath)) {
+            console.error(`File not found: ${jsonPath}`);
+            return res.status(404).json({ error: "No slides found" });
+        }
 
         const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         let pptx = new pptxgen();
@@ -181,7 +185,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     }
 });
 
-
 // ✅ Download PDF
 app.get("/download-pdf/:topic", (req, res) => {
     try {
@@ -189,7 +192,11 @@ app.get("/download-pdf/:topic", (req, res) => {
         const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
         const pdfPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pdf`;
 
-        if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found for this topic" });
+        // ✅ Check if file exists
+        if (!fs.existsSync(jsonPath)) {
+            console.error(`File not found: ${jsonPath}`);
+            return res.status(404).json({ error: "No slides found for this topic" });
+        }
 
         const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         const doc = new PDFDocument({ autoFirstPage: false });
@@ -208,13 +215,22 @@ app.get("/download-pdf/:topic", (req, res) => {
         });
 
         doc.end();
-        res.download(pdfPath);
+
+        // ✅ Ensure the file is available before sending
+        setTimeout(() => {
+            res.download(pdfPath, (err) => {
+                if (err) {
+                    console.error("Download error:", err);
+                    res.status(500).json({ error: "Failed to download PDF" });
+                }
+            });
+        }, 1000); // Small delay to ensure file is written
 
     } catch (error) {
         console.error("Error generating PDF:", error.message);
         res.status(500).json({ error: "Failed to generate PDF" });
     }
-}); 
+});
 
 // Start Server
 app.listen(5000, () => console.log(`✅ Server running on port 5000`));
