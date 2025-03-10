@@ -24,6 +24,24 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemi
 const upload = multer({ dest: "uploads/" });
 
 
+
+app.post("/update-slides", (req, res) => {
+    try {
+        const { topic, slides } = req.body;
+        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+
+        // Save updated slides to JSON file
+        fs.writeFileSync(jsonPath, JSON.stringify(slides, null, 2), "utf-8");
+
+        res.json({ success: true, message: "Slides updated successfully" });
+    } catch (error) {
+        console.error("Error updating slides:", error.message);
+        res.status(500).json({ error: "Failed to update slides" });
+    }
+});
+
+
+
 // ✅ AI-Powered Search using Google Gemini
 app.post("/ai-search", async (req, res) => {
     try {
@@ -133,10 +151,14 @@ app.post("/generate-ppt", async (req, res) => {
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
         const topic = req.params.topic;
-        if (!slideData[topic]) return res.status(404).json({ error: "No slides found" });
+        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
 
+        if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "No slides found" });
+
+        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         let pptx = new pptxgen();
-        slideData[topic].forEach((slide, index) => {
+
+        slides.forEach((slide, index) => {
             let pptSlide = pptx.addSlide();
             pptSlide.addText(`Slide ${index + 1}: ${slide.title}`, { x: 1, y: 0.5, fontSize: 24, bold: true });
             slide.content.forEach((point, i) => {
@@ -144,7 +166,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
             });
         });
 
-        const pptBuffer = await pptx.write("arraybuffer"); // Generate PPT as a buffer
+        const pptBuffer = await pptx.write("arraybuffer");
 
         res.set({
             "Content-Disposition": `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`,
@@ -161,7 +183,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
 
 // ✅ Download PDF
-// ✅ Fixed Download PDF Endpoint
 app.get("/download-pdf/:topic", (req, res) => {
     try {
         const topic = req.params.topic;
@@ -173,15 +194,12 @@ app.get("/download-pdf/:topic", (req, res) => {
         const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
         const doc = new PDFDocument({ autoFirstPage: false });
 
-        // Stream to the PDF file
         doc.pipe(fs.createWriteStream(pdfPath));
 
-        // Generate each slide on a new page
         slides.forEach((slide, index) => {
-            doc.addPage(); // Ensure a new page for each slide
+            doc.addPage();
             doc.fontSize(24).text(slide.title, { underline: true, align: "center" });
 
-            // Adding slide content
             doc.moveDown();
             slide.content.forEach(text => {
                 doc.fontSize(14).text(text, { align: "left" });
@@ -197,5 +215,6 @@ app.get("/download-pdf/:topic", (req, res) => {
         res.status(500).json({ error: "Failed to generate PDF" });
     }
 });
+
 // Start Server
 app.listen(5000, () => console.log(`✅ Server running on port 5000`));
