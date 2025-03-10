@@ -214,7 +214,7 @@ app.get("/download-pdf/:topic", (req, res) => {
         console.error("Error generating PDF:", error.message);
         res.status(500).json({ error: "Failed to generate PDF" });
     }
-});
+}); 
 
 // Start Server
 app.listen(5000, () => console.log(`✅ Server running on port 5000`));
