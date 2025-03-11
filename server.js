@@ -30,7 +30,6 @@ const upload = multer({ dest: "uploads/" });
 app.post("/translate", async (req, res) => {
   try {
     const { text, targetLanguage } = req.body;
-
     if (!text || !targetLanguage) {
       return res.status(400).json({ error: "Text and targetLanguage are required" });
     }
@@ -38,20 +37,19 @@ app.post("/translate", async (req, res) => {
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
       {
-        prompt: `Translate the following text to ${targetLanguage}:\n\n"${text}"`,
-      }
+        contents: [{ parts: [{ text: `Translate this text to ${targetLanguage}: ${text}` }] }]
+      },
+      { headers: { "Content-Type": "application/json" } }
     );
 
-    const translatedText = response.data?.candidates?.[0]?.output || "Translation failed";
-
+    const translatedText = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Translation failed";
     res.json({ success: true, translatedText });
+
   } catch (error) {
     console.error("Translation Error:", error.message);
     res.status(500).json({ error: "Translation failed" });
   }
 });
-
-
 
 
 app.post("/update-slides", (req, res) => {
