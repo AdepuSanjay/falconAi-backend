@@ -6,7 +6,7 @@ const multer = require("multer");
 const pptxgen = require("pptxgenjs");
 const PDFDocument = require("pdfkit");
 require("dotenv").config();
-
+ 
 const app = express();
 app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
 app.use(express.json());
