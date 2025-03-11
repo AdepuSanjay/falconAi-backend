@@ -106,21 +106,16 @@ app.post("/generate-ppt", async (req, res) => {
         if (!slideCount || slideCount < 1 || slideCount > 13)
             return res.status(400).json({ error: "Slide count must be between 1 and 13" });
 
-        // Refined Prompt for Proper Slide Formatting
+        // ✅ Improved Prompt to Avoid Markdown Formatting
         const prompt = `Create a structured PowerPoint presentation on "${topic}" with exactly ${slideCount} slides. 
-        Each slide should be formatted as JSON with:
-        - A title in the format "Slide X: Title"
-        - A content array with 3-5 bullet points (each as a separate string).
-        - If relevant, include short code snippets in a separate "code" field.
-        
-        Example output format:
+        Return JSON in the format:
         {
-            "slides": [
-                { "title": "Slide 1: Introduction", "content": ["Point 1", "Point 2", "Point 3"] },
-                { "title": "Slide 2: Main Concepts", "content": ["Point A", "Point B", "Point C"], "code": "console.log('Example');" }
-            ]
+          "slides": [
+            { "title": "Slide 1: Introduction", "content": ["Point 1", "Point 2"] },
+            { "title": "Slide 2: Main Concepts", "content": ["Point A", "Point B"] }
+          ]
         }
-        Return only the JSON object and nothing else.`;
+        IMPORTANT: Respond ONLY with valid JSON. Do not include "```json" or any extra text.`;
 
         const response = await axios.post(GEMINI_API_URL, {
             contents: [{ parts: [{ text: prompt }] }]
@@ -132,8 +127,11 @@ app.post("/generate-ppt", async (req, res) => {
         let content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        // Parse JSON response properly
-        let slides = [];
+        // ✅ Sanitize Response (Remove Backticks & Code Block Markers)
+        content = content.replace(/```json/g, "").replace(/```/g, "").trim();
+
+        // ✅ Try Parsing JSON
+        let slides;
         try {
             slides = JSON.parse(content).slides || [];
         } catch (err) {
@@ -141,7 +139,7 @@ app.post("/generate-ppt", async (req, res) => {
             return res.status(500).json({ error: "Failed to process slides" });
         }
 
-        // Save slides as JSON
+        // ✅ Save slides as JSON
         const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
         fs.writeFileSync(filePath, JSON.stringify(slides, null, 2));
 
