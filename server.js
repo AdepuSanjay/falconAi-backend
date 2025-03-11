@@ -106,38 +106,40 @@ app.post("/generate-ppt", async (req, res) => {
         if (!slideCount || slideCount < 1 || slideCount > 13)
             return res.status(400).json({ error: "Slide count must be between 1 and 13" });
 
-        const prompt = `Create a PowerPoint presentation on "${topic}" with exactly ${slideCount} slides.
-        - Each slide should have:
-          - A **title** in the format "**Slide X: [Title]**"
-          - 3-5 key bullet points per slide.
-          - Code snippets for programming topics.
-        Format strictly as:
-        **Slide 1: [Title]**
-        - Point 1
-        - Point 2`;
+        const prompt = `Create a structured PowerPoint presentation in JSON format on "${topic}" with exactly ${slideCount} slides.
+        Each slide must have:
+        - A "title" field for the slide title.
+        - A "content" field containing an array of 3-5 key bullet points.
+        - If the topic is programming-related, include a "code" field with a relevant code snippet.
+        
+        Respond strictly in the following JSON format:
+        {
+            "slides": [
+                { "title": "Introduction", "content": ["Point 1", "Point 2"] },
+                { "title": "Main Topic", "content": ["Detail 1", "Detail 2"], "code": "console.log('Example');" }
+            ]
+        }`;
 
-        const response = await axios.post(GEMINI_API_URL, { contents: [{ parts: [{ text: prompt }] }] },
-            { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } });
+        const response = await axios.post(GEMINI_API_URL, {
+            contents: [{ parts: [{ text: prompt }] }]
+        }, {
+            headers: { "Content-Type": "application/json" },
+            params: { key: GOOGLE_GEMINI_API_KEY }
+        });
 
         const content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        let slides = [];
-        let currentSlide = null;
+        let slides;
+        try {
+            slides = JSON.parse(content).slides;
+        } catch (error) {
+            return res.status(500).json({ error: "Failed to parse AI response" });
+        }
 
-        content.split("\n").forEach(line => {
-            line = line.trim();
-            if (line.startsWith("**Slide")) {
-                if (currentSlide) slides.push(currentSlide);
-                currentSlide = { title: line.replace(/\*\*Slide \d+:?\*\*/g, "").trim(), content: [] };
-            } else if (currentSlide && line !== "") {
-                currentSlide.content.push(line);
-            }
-        });
+        const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+        fs.writeFileSync(filePath, JSON.stringify(slides, null, 2));
 
-        if (currentSlide) slides.push(currentSlide);
-
-        fs.writeFileSync(`./generated_ppts/${topic.replace(/\s/g, "_")}.json`, JSON.stringify(slides, null, 2));
         res.json({ message: "Slides generated successfully", slides });
 
     } catch (error) {
