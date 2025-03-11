@@ -25,6 +25,67 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemi
 const upload = multer({ dest: "uploads/" });
 
 
+// Supported languages (you can add more)
+const supportedLanguages = ["English", "Hindi", "Telugu", "Tamil", "Kannada", "Malayalam"];
+
+// Pre-defined letter templates
+const letterTemplates = {
+  leave_application: `Subject: Request for Leave\n\nDear [Recipient's Name],\n\nI am writing to request leave from [start date] to [end date] due to [reason]. Kindly grant me permission for the mentioned period.\n\nSincerely,\n[Your Name]`,
+  
+  bonafide_certificate: `Subject: Request for Bonafide Certificate\n\nDear [Recipient's Name],\n\nI am a student of [college/school name], and I require a bonafide certificate for [reason]. Please process my request at the earliest.\n\nThank you.\n\nSincerely,\n[Your Name]`,
+  
+  event_permission: `Subject: Permission Request for Event Participation\n\nDear [Recipient's Name],\n\nI seek permission to participate in [event name] on [event date]. Kindly grant me the necessary approval.\n\nSincerely,\n[Your Name]`,
+};
+
+// Generate a letter in multiple languages
+app.post("/generate-letter", async (req, res) => {
+  try {
+    const { letterType, recipientName, userName, reason, startDate, endDate, targetLanguage } = req.body;
+
+    if (!letterTemplates[letterType]) {
+      return res.status(400).json({ error: "Invalid letter type" });
+    }
+
+    if (targetLanguage && !supportedLanguages.includes(targetLanguage)) {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    // Generate a personalized letter
+    let letterContent = letterTemplates[letterType]
+      .replace("[Recipient's Name]", recipientName)
+      .replace("[Your Name]", userName)
+      .replace("[reason]", reason || "")
+      .replace("[start date]", startDate || "")
+      .replace("[end date]", endDate || "");
+
+    // Translate the letter if the user selects a different language
+    if (targetLanguage && targetLanguage !== "English") {
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+        {
+          contents: [{ parts: [{ text: `Translate this text to ${targetLanguage}: ${letterContent}` }] }]
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      letterContent = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || letterContent;
+    }
+
+    res.json({ success: true, letterContent });
+  } catch (error) {
+    console.error("Letter Generation Error:", error.message);
+    res.status(500).json({ error: "Failed to generate letter" });
+  }
+});
+
+// Fetch available templates
+app.get("/letter-templates", (req, res) => {
+  res.json({ success: true, templates: Object.keys(letterTemplates), supportedLanguages });
+});
+
+
+
+
 
 // 🆕 Translation Endpoint
 app.post("/translate", async (req, res) => {
