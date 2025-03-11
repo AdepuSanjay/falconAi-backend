@@ -26,6 +26,34 @@ const upload = multer({ dest: "uploads/" });
 
 
 
+// 🆕 Translation Endpoint
+app.post("/translate", async (req, res) => {
+  try {
+    const { text, targetLanguage } = req.body;
+
+    if (!text || !targetLanguage) {
+      return res.status(400).json({ error: "Text and targetLanguage are required" });
+    }
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateText?key=${GOOGLE_GEMINI_API_KEY}`,
+      {
+        prompt: `Translate the following text to ${targetLanguage}:\n\n"${text}"`,
+      }
+    );
+
+    const translatedText = response.data?.candidates?.[0]?.output || "Translation failed";
+
+    res.json({ success: true, translatedText });
+  } catch (error) {
+    console.error("Translation Error:", error.message);
+    res.status(500).json({ error: "Translation failed" });
+  }
+});
+
+
+
+
 app.post("/update-slides", (req, res) => {
     try {
         const { topic, slides } = req.body;
