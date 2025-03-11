@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
+const path=require("path");
 const multer = require("multer");
 const pptxgen = require("pptxgenjs");
 const PDFDocument = require("pdfkit");
@@ -153,12 +154,16 @@ app.post("/generate-ppt", async (req, res) => {
 
 
 // ✅ Download PPTX
+
+
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
         const topic = req.params.topic;
-        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+        const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
 
+        // ✅ Check if the file exists
         if (!fs.existsSync(jsonPath)) {
+            console.error(`File not found: ${jsonPath}`);
             return res.status(404).json({ error: "No slides found" });
         }
 
@@ -168,20 +173,22 @@ app.get("/download-ppt/:topic", async (req, res) => {
         slides.forEach((slide, index) => {
             let pptSlide = pptx.addSlide();
             pptSlide.addText(slide.title, { x: 1, y: 0.5, fontSize: 24, bold: true });
+
             slide.content.forEach((point, i) => {
                 pptSlide.addText(`- ${point}`, { x: 1, y: 1 + i * 0.5, fontSize: 18 });
             });
         });
 
-        const pptBuffer = await pptx.write("nodebuffer");
+        const pptBuffer = await pptx.writeBuffer();
 
-        res.setHeader("Content-Disposition", `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`);
-        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+        res.set({
+            "Content-Disposition": `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`,
+            "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        });
 
         res.send(pptBuffer);
-
     } catch (error) {
-        console.error("Error generating PPT:", error.message);
+        console.error("Error generating PPT:", error);
         res.status(500).json({ error: "Failed to generate PPT" });
     }
 });
