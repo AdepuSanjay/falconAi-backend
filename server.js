@@ -20,7 +20,7 @@ if (!GOOGLE_GEMINI_API_KEY) {
     process.exit(1);
 }
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 const upload = multer({ dest: "uploads/" });
 
 
