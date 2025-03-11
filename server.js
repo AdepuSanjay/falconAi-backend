@@ -36,7 +36,7 @@ app.post("/translate", async (req, res) => {
     }
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateText?key=${GOOGLE_GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
       {
         prompt: `Translate the following text to ${targetLanguage}:\n\n"${text}"`,
       }
