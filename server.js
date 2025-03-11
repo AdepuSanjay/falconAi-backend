@@ -20,7 +20,7 @@ if (!GOOGLE_GEMINI_API_KEY) {
     process.exit(1);
 }
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
 const upload = multer({ dest: "uploads/" });
 
 
@@ -106,19 +106,21 @@ app.post("/generate-ppt", async (req, res) => {
         if (!slideCount || slideCount < 1 || slideCount > 13)
             return res.status(400).json({ error: "Slide count must be between 1 and 13" });
 
-        const prompt = `Create a structured PowerPoint presentation in JSON format on "${topic}" with exactly ${slideCount} slides.
-        Each slide must have:
-        - A "title" field for the slide title.
-        - A "content" field containing an array of 3-5 key bullet points.
-        - If the topic is programming-related, include a "code" field with a relevant code snippet.
+        // Refined Prompt for Proper Slide Formatting
+        const prompt = `Create a structured PowerPoint presentation on "${topic}" with exactly ${slideCount} slides. 
+        Each slide should be formatted as JSON with:
+        - A title in the format "Slide X: Title"
+        - A content array with 3-5 bullet points (each as a separate string).
+        - If relevant, include short code snippets in a separate "code" field.
         
-        Respond strictly in the following JSON format:
+        Example output format:
         {
             "slides": [
-                { "title": "Introduction", "content": ["Point 1", "Point 2"] },
-                { "title": "Main Topic", "content": ["Detail 1", "Detail 2"], "code": "console.log('Example');" }
+                { "title": "Slide 1: Introduction", "content": ["Point 1", "Point 2", "Point 3"] },
+                { "title": "Slide 2: Main Concepts", "content": ["Point A", "Point B", "Point C"], "code": "console.log('Example');" }
             ]
-        }`;
+        }
+        Return only the JSON object and nothing else.`;
 
         const response = await axios.post(GEMINI_API_URL, {
             contents: [{ parts: [{ text: prompt }] }]
@@ -127,16 +129,19 @@ app.post("/generate-ppt", async (req, res) => {
             params: { key: GOOGLE_GEMINI_API_KEY }
         });
 
-        const content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        let content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) return res.status(500).json({ error: "No content generated" });
 
-        let slides;
+        // Parse JSON response properly
+        let slides = [];
         try {
-            slides = JSON.parse(content).slides;
-        } catch (error) {
-            return res.status(500).json({ error: "Failed to parse AI response" });
+            slides = JSON.parse(content).slides || [];
+        } catch (err) {
+            console.error("Error parsing JSON from Gemini response:", err);
+            return res.status(500).json({ error: "Failed to process slides" });
         }
 
+        // Save slides as JSON
         const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
         fs.writeFileSync(filePath, JSON.stringify(slides, null, 2));
 
