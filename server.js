@@ -158,9 +158,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
         const topic = req.params.topic;
         const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
 
-        // ✅ Check if file exists
         if (!fs.existsSync(jsonPath)) {
-            console.error(`File not found: ${jsonPath}`);
             return res.status(404).json({ error: "No slides found" });
         }
 
@@ -169,27 +167,24 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
         slides.forEach((slide, index) => {
             let pptSlide = pptx.addSlide();
-            pptSlide.addText(`Slide ${index + 1}: ${slide.title}`, { x: 1, y: 0.5, fontSize: 24, bold: true });
+            pptSlide.addText(slide.title, { x: 1, y: 0.5, fontSize: 24, bold: true });
             slide.content.forEach((point, i) => {
                 pptSlide.addText(`- ${point}`, { x: 1, y: 1 + i * 0.5, fontSize: 18 });
             });
         });
 
-        const pptBuffer = await pptx.write("arraybuffer");
+        const pptBuffer = await pptx.write("nodebuffer");
 
-        res.set({
-            "Content-Disposition": `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`,
-            "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        });
+        res.setHeader("Content-Disposition", `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`);
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
 
-        res.send(Buffer.from(pptBuffer));
+        res.send(pptBuffer);
 
     } catch (error) {
         console.error("Error generating PPT:", error.message);
         res.status(500).json({ error: "Failed to generate PPT" });
     }
 });
-
 // ✅ Download PDF
 app.get("/download-pdf/:topic", (req, res) => {
     try {
