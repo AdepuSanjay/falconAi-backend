@@ -188,18 +188,11 @@ app.get("/check-slides", (req, res) => {
 
 
 // ✅ Generate Slides using Google Gemini
-// List of keywords to detect coding-related topics
-const CODING_KEYWORDS = ["Python", "JavaScript", "React", "Node.js", "Express", "API", "Django", "Flask", "Java", "C++", "TypeScript", "Machine Learning", "AI Model"];
 
-// Function to detect if a topic is coding-related
-function isCodingTopic(topic) {
-    return CODING_KEYWORDS.some(keyword => topic.toLowerCase().includes(keyword.toLowerCase()));
-}
-
-// Function to parse AI-generated slides
-function parseSlides(responseText) {
+// Function to extract structured slide data
+function parseGeminiResponse(responseText) {
     const slides = [];
-    const slideSections = responseText.split("Slide ");
+    const slideSections = responseText.split("\nSlide ");
 
     slideSections.forEach((section) => {
         const match = section.match(/^(\d+):\s*(.+)/);
@@ -210,52 +203,112 @@ function parseSlides(responseText) {
         }
     });
 
-    return slides.length ? { slides } : { error: "Unexpected AI response format" };
+    return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
 
-// API Route to handle both slides and coding queries
+// API Route to Generate PPT from Gemini AI
 app.post("/generate-ppt", async (req, res) => {
     const { topic, slidesCount } = req.body;
 
-    if (!topic) {
-        return res.status(400).json({ error: "Missing required field: topic" });
+    if (!topic || !slidesCount) {
+        return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
+    }
+
+    // Define a more structured prompt based on whether the topic is related to coding
+    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang => topic.toLowerCase().includes(lang.toLowerCase()));
+
+    let prompt;
+    if (isCodingTopic) {
+        prompt = `
+Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+Each slide should include:
+1. A title in the format "Slide X: Title".
+2. Bullet points explaining key concepts.
+3. If applicable, include **code snippets** in "```language" format.
+4. Ensure slides have structured explanations for clarity.
+
+Follow this format:
+
+Slide 1: Introduction to ${topic}
+- Brief history of ${topic}.
+- Why is ${topic} important?
+- Key features.
+
+Slide 2: Basic Syntax
+- Explanation of syntax.
+- Example code:
+\`\`\`${topic.toLowerCase()}
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+\`\`\`
+
+Slide 3: Key Concepts
+- Concept 1
+- Concept 2
+- Example:
+\`\`\`${topic.toLowerCase()}
+if (condition) {
+    // Code block
+} else {
+    // Another block
+}
+\`\`\`
+
+Slide 4: Best Practices
+- Performance tips.
+- Error handling.
+- Security considerations.
+
+Ensure every slide follows this structure for consistency.
+        `;
+    } else {
+        prompt = `
+Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+Each slide should include:
+1. A title in the format "Slide X: Title".
+2. Bullet points explaining key concepts.
+3. Clear explanations and examples if applicable.
+
+Example:
+
+Slide 1: Introduction to ${topic}
+- Definition of ${topic}.
+- Importance and applications.
+
+Slide 2: Key Features
+- Feature 1
+- Feature 2
+
+Slide 3: Benefits
+- Advantage 1
+- Advantage 2
+
+Ensure the response follows this exact slide format.
+        `;
     }
 
     try {
-        let prompt;
-        let isCoding = isCodingTopic(topic);
-
-        if (isCoding) {
-            // Coding-related prompt
-            prompt = `Provide detailed coding examples and syntax explanations for "${topic}". Ensure the response includes formatted code snippets where necessary.`;
-        } else {
-            // PPT slides prompt
-            prompt = `Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount || 10} slides. Each slide should include a title and bullet points. Format: \n\nSlide 1: Title\n- Bullet point 1\n- Bullet point 2\n\nSlide 2: Title\n- Bullet point 1\n- Bullet point 2`;
-        }
-
         const geminiResponse = await axios.post(`${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`, {
             contents: [{ parts: [{ text: prompt }] }]
         });
 
         const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-        if (isCoding) {
-            // Return raw AI response for coding queries
-            return res.json({ content: aiText });
-        } else {
-            // Parse slides for non-coding topics
-            const slides = parseSlides(aiText);
-            if (slides.error) {
-                return res.status(500).json({ error: "Unexpected AI response. Please try again." });
-            }
-            return res.json(slides);
+        const formattedSlides = parseGeminiResponse(aiText);
+
+        if (formattedSlides.error) {
+            return res.status(500).json({ error: "Unexpected AI response. Please try again." });
         }
+
+        return res.json(formattedSlides);
     } catch (error) {
         console.error("Error calling Gemini API:", error);
-        return res.status(500).json({ error: "Failed to generate content from AI." });
+        return res.status(500).json({ error: "Failed to generate slides from AI." });
     }
 });
- 
 
 // ✅ Download PPTX
 app.get("/download-pptx/:topic", async (req, res) => {
