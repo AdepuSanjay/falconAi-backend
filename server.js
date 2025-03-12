@@ -191,14 +191,24 @@ app.get("/check-slides", (req, res) => {
 // Function to properly extract slides and preserve code formatting
 function parseGeminiResponse(responseText) {
     const slides = [];
-    const slideSections = responseText.split("\n\n**"); // Split by markdown "**" (bold titles)
+    const slideSections = responseText.split("Slide ");
 
     slideSections.forEach((section) => {
-        const match = section.match(/^(\d+)\.\s*(.+)\*\*/);
+        const match = section.match(/^(\d+):\s*(.+)/);
         if (match) {
             const title = match[2].trim();
-            const content = section.replace(match[0], "").trim(); // Remove title from content
-            slides.push({ title, content });
+            const contentLines = section
+                .split("\n")
+                .slice(1)
+                .map(line => line.trim())
+                .filter(line => line);
+
+            // Handle code blocks properly (escape backticks)
+            const formattedContent = contentLines.map(line => 
+                line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line
+            );
+
+            slides.push({ title, content: formattedContent });
         }
     });
 
