@@ -188,7 +188,8 @@ app.get("/check-slides", (req, res) => {
 
 
 // ✅ Generate Slides using Google Gemini
-// Function to properly extract slides and preserve code formatting
+
+// Function to parse Gemini AI response into structured slides
 function parseGeminiResponse(responseText) {
     const slides = [];
     const slideSections = responseText.split("Slide ");
@@ -203,7 +204,7 @@ function parseGeminiResponse(responseText) {
                 .map(line => line.trim())
                 .filter(line => line);
 
-            // Handle code blocks properly (escape backticks)
+            // Escape backticks in code blocks to prevent syntax errors
             const formattedContent = contentLines.map(line => 
                 line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line
             );
@@ -223,27 +224,29 @@ app.post("/generate-ppt", async (req, res) => {
         return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
     }
 
-    // Detect if topic is coding-related
-    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang => topic.toLowerCase().includes(lang.toLowerCase()));
+    // Detect if the topic is related to coding
+    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang => 
+        topic.toLowerCase().includes(lang.toLowerCase())
+    );
 
     let prompt;
     if (isCodingTopic) {
         prompt = `
 Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
 Each slide should:
-1. Have a clear title in "**Slide X: Title**" format.
+1. Have a title in "**Slide X: Title**" format.
 2. Contain bullet points explaining key concepts.
-3. Include **formatted code snippets** (if applicable) using "```java" syntax.
+3. Include **properly formatted code snippets** using "\`\`\`${topic.toLowerCase()}" syntax.
 4. Ensure structured explanations.
 
 Example:
 
-**Slide 1: Introduction to Java**
-- Java is a high-level, object-oriented programming language.
-- Platform-independent due to the Java Virtual Machine (JVM).
+**Slide 1: Introduction to ${topic}**
+- ${topic} is a powerful programming language.
+- Used in web development, software engineering, and more.
 
 **Slide 2: Hello World Program**
-\`\`\`java
+\`\`\`${topic.toLowerCase()}
 public class Main {
     public static void main(String[] args) {
         System.out.println("Hello, World!");
@@ -252,9 +255,9 @@ public class Main {
 \`\`\`
 
 **Slide 3: Variables and Data Types**
-- Java is statically typed.
-- Example of different data types:
-\`\`\`java
+- Statically typed language.
+- Example:
+\`\`\`${topic.toLowerCase()}
 int age = 25;
 double price = 19.99;
 boolean isAvailable = true;
