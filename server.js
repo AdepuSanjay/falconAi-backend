@@ -83,22 +83,24 @@ app.get("/letter-templates", (req, res) => {
   res.json({ success: true, templates: Object.keys(letterTemplates), supportedLanguages });
 });
 
-
-
-
-
 // 🆕 Translation Endpoint
 app.post("/translate", async (req, res) => {
   try {
-    const { text, targetLanguage } = req.body;
+    const { text, sourceLanguage, targetLanguage } = req.body;
     if (!text || !targetLanguage) {
       return res.status(400).json({ error: "Text and targetLanguage are required" });
+    }
+
+    // Constructing the prompt dynamically
+    let prompt = `Translate the following text to ${targetLanguage}: ${text}`;
+    if (sourceLanguage) {
+      prompt = `Translate the following text from ${sourceLanguage} to ${targetLanguage}: ${text}`;
     }
 
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
       {
-        contents: [{ parts: [{ text: `Translate this text to ${targetLanguage}: ${text}` }] }]
+        contents: [{ parts: [{ text: prompt }] }]
       },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -111,7 +113,6 @@ app.post("/translate", async (req, res) => {
     res.status(500).json({ error: "Translation failed" });
   }
 });
-
 
 app.post("/update-slides", (req, res) => {
     try {
