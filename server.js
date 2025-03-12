@@ -188,58 +188,74 @@ app.get("/check-slides", (req, res) => {
 
 
 // ✅ Generate Slides using Google Gemini
+// List of keywords to detect coding-related topics
+const CODING_KEYWORDS = ["Python", "JavaScript", "React", "Node.js", "Express", "API", "Django", "Flask", "Java", "C++", "TypeScript", "Machine Learning", "AI Model"];
+
+// Function to detect if a topic is coding-related
+function isCodingTopic(topic) {
+    return CODING_KEYWORDS.some(keyword => topic.toLowerCase().includes(keyword.toLowerCase()));
+}
+
+// Function to parse AI-generated slides
+function parseSlides(responseText) {
+    const slides = [];
+    const slideSections = responseText.split("Slide ");
+
+    slideSections.forEach((section) => {
+        const match = section.match(/^(\d+):\s*(.+)/);
+        if (match) {
+            const title = match[2].trim();
+            const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
+            slides.push({ title, content: contentLines });
+        }
+    });
+
+    return slides.length ? { slides } : { error: "Unexpected AI response format" };
+}
+
+// API Route to handle both slides and coding queries
 app.post("/generate-ppt", async (req, res) => {
+    const { topic, slidesCount } = req.body;
+
+    if (!topic) {
+        return res.status(400).json({ error: "Missing required field: topic" });
+    }
+
     try {
-        const { topic, slideCount } = req.body;
-        if (!topic) return res.status(400).json({ error: "Topic is required" });
-        if (!slideCount || slideCount < 1 || slideCount > 13)
-            return res.status(400).json({ error: "Slide count must be between 1 and 13" });
+        let prompt;
+        let isCoding = isCodingTopic(topic);
 
-        // ✅ IMPROVED PROMPT FOR PROPERLY FORMATTED JSON
-        const prompt = `Create a structured PowerPoint presentation on "${topic}" with exactly ${slideCount} slides.  
-        Return JSON in the format:  
-        {  
-            "slides": [  
-                { "title": "Slide 1: Introduction", "content": ["Point 1", "Point 2", "Point 3"] },  
-                { "title": "Slide 2: Key Concepts", "content": ["Point A", "Point B", "Point C"] }  
-            ]  
-        }  
-        IMPORTANT: Respond **only** with JSON output. Do NOT include any markdown formatting (like \`\`\`json).`;
-
-        const response = await axios.post(GEMINI_API_URL, {
-            contents: [{ parts: [{ text: prompt }] }]
-        }, {
-            headers: { "Content-Type": "application/json" },
-            params: { key: GOOGLE_GEMINI_API_KEY }
-        });
-
-        let content = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) return res.status(500).json({ error: "No content generated" });
-
-        // ✅ REMOVE UNNECESSARY FORMATTING (Markdown Issues)
-        content = content.replace(/```json/g, "").replace(/```/g, "").trim();
-
-        // ✅ PARSE JSON SAFELY
-        let slides;
-        try {
-            slides = JSON.parse(content).slides || [];
-        } catch (err) {
-            console.error("Error parsing JSON from Gemini response:", err);
-            return res.status(500).json({ error: "Failed to process slides" });
+        if (isCoding) {
+            // Coding-related prompt
+            prompt = `Provide detailed coding examples and syntax explanations for "${topic}". Ensure the response includes formatted code snippets where necessary.`;
+        } else {
+            // PPT slides prompt
+            prompt = `Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount || 10} slides. Each slide should include a title and bullet points. Format: \n\nSlide 1: Title\n- Bullet point 1\n- Bullet point 2\n\nSlide 2: Title\n- Bullet point 1\n- Bullet point 2`;
         }
 
-        // ✅ SAVE AS JSON FILE
-        const filePath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
-        fs.writeFileSync(filePath, JSON.stringify(slides, null, 2));
+        const geminiResponse = await axios.post(`${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`, {
+            contents: [{ parts: [{ text: prompt }] }]
+        });
 
-        res.json({ message: "Slides generated successfully", slides });
+        const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
+        if (isCoding) {
+            // Return raw AI response for coding queries
+            return res.json({ content: aiText });
+        } else {
+            // Parse slides for non-coding topics
+            const slides = parseSlides(aiText);
+            if (slides.error) {
+                return res.status(500).json({ error: "Unexpected AI response. Please try again." });
+            }
+            return res.json(slides);
+        }
     } catch (error) {
-        console.error("Error generating slides:", error.message);
-        res.status(500).json({ error: "Failed to generate slides" });
+        console.error("Error calling Gemini API:", error);
+        return res.status(500).json({ error: "Failed to generate content from AI." });
     }
 });
-
+ 
 
 // ✅ Download PPTX
 app.get("/download-pptx/:topic", async (req, res) => {
