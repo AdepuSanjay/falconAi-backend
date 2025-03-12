@@ -188,18 +188,17 @@ app.get("/check-slides", (req, res) => {
 
 
 // ✅ Generate Slides using Google Gemini
-
-// Function to extract structured slide data
+// Function to properly extract slides and preserve code formatting
 function parseGeminiResponse(responseText) {
     const slides = [];
-    const slideSections = responseText.split("\nSlide ");
+    const slideSections = responseText.split("\n\n**"); // Split by markdown "**" (bold titles)
 
     slideSections.forEach((section) => {
-        const match = section.match(/^(\d+):\s*(.+)/);
+        const match = section.match(/^(\d+)\.\s*(.+)\*\*/);
         if (match) {
             const title = match[2].trim();
-            const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
-            slides.push({ title, content: contentLines });
+            const content = section.replace(match[0], "").trim(); // Remove title from content
+            slides.push({ title, content });
         }
     });
 
@@ -214,77 +213,62 @@ app.post("/generate-ppt", async (req, res) => {
         return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
     }
 
-    // Define a more structured prompt based on whether the topic is related to coding
+    // Detect if topic is coding-related
     const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang => topic.toLowerCase().includes(lang.toLowerCase()));
 
     let prompt;
     if (isCodingTopic) {
         prompt = `
-Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-Each slide should include:
-1. A title in the format "Slide X: Title".
-2. Bullet points explaining key concepts.
-3. If applicable, include **code snippets** in "```language" format.
-4. Ensure slides have structured explanations for clarity.
+Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+Each slide should:
+1. Have a clear title in "**Slide X: Title**" format.
+2. Contain bullet points explaining key concepts.
+3. Include **formatted code snippets** (if applicable) using "```java" syntax.
+4. Ensure structured explanations.
 
-Follow this format:
+Example:
 
-Slide 1: Introduction to ${topic}
-- Brief history of ${topic}.
-- Why is ${topic} important?
-- Key features.
+**Slide 1: Introduction to Java**
+- Java is a high-level, object-oriented programming language.
+- Platform-independent due to the Java Virtual Machine (JVM).
 
-Slide 2: Basic Syntax
-- Explanation of syntax.
-- Example code:
-\`\`\`${topic.toLowerCase()}
-public class HelloWorld {
+**Slide 2: Hello World Program**
+\`\`\`java
+public class Main {
     public static void main(String[] args) {
         System.out.println("Hello, World!");
     }
 }
 \`\`\`
 
-Slide 3: Key Concepts
-- Concept 1
-- Concept 2
-- Example:
-\`\`\`${topic.toLowerCase()}
-if (condition) {
-    // Code block
-} else {
-    // Another block
-}
+**Slide 3: Variables and Data Types**
+- Java is statically typed.
+- Example of different data types:
+\`\`\`java
+int age = 25;
+double price = 19.99;
+boolean isAvailable = true;
 \`\`\`
 
-Slide 4: Best Practices
-- Performance tips.
-- Error handling.
-- Security considerations.
-
-Ensure every slide follows this structure for consistency.
+Ensure the response follows this exact format.
         `;
     } else {
         prompt = `
 Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-Each slide should include:
-1. A title in the format "Slide X: Title".
-2. Bullet points explaining key concepts.
-3. Clear explanations and examples if applicable.
+Each slide should:
+1. Have a title in "**Slide X: Title**" format.
+2. Include bullet points explaining key concepts.
+3. Provide clear, structured information.
 
 Example:
 
-Slide 1: Introduction to ${topic}
+**Slide 1: Introduction to ${topic}**
 - Definition of ${topic}.
 - Importance and applications.
 
-Slide 2: Key Features
+**Slide 2: Key Features**
 - Feature 1
 - Feature 2
-
-Slide 3: Benefits
-- Advantage 1
-- Advantage 2
 
 Ensure the response follows this exact slide format.
         `;
@@ -309,6 +293,7 @@ Ensure the response follows this exact slide format.
         return res.status(500).json({ error: "Failed to generate slides from AI." });
     }
 });
+
 
 // ✅ Download PPTX
 app.get("/download-pptx/:topic", async (req, res) => {
