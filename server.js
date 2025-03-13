@@ -7,6 +7,10 @@ const multer = require("multer");
 const pptxgen = require("pptxgenjs");
 const PDFDocument = require("pdfkit");
 require("dotenv").config();
+const { PDFDocument } = require("pdf-lib");
+const mammoth = require("mammoth");
+const pptx2json = require("pptx2json");
+
  
 const app = express();
 app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
@@ -23,6 +27,87 @@ if (!GOOGLE_GEMINI_API_KEY) {
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 const upload = multer({ dest: "uploads/" });
+
+
+async function extractImagesFromPDF(pdfPath) {
+    const existingPdfBytes = fs.readFileSync(pdfPath);
+    const pdfDoc = await PDFDocument.load(existingPdfBytes);
+    const images = [];
+
+    for (const page of pdfDoc.getPages()) {
+        const imageObjects = page.node.Resources.XObject;
+        if (imageObjects) {
+            for (const key in imageObjects) {
+                const obj = imageObjects[key];
+                if (obj instanceof PDFDocument.Image) {
+                    images.push(obj);
+                }
+            }
+        }
+    }
+    return images;
+}
+
+async function extractImagesFromDocx(docxPath) {
+    const docBuffer = fs.readFileSync(docxPath);
+    const result = await mammoth.extractRawText({ buffer: docBuffer });
+    return result.images; // Extract images from DOCX
+}
+
+async function extractImagesFromPPTX(pptxPath) {
+    const slides = await pptx2json(pptxPath);
+    let images = [];
+    slides.forEach(slide => {
+        if (slide.images) images.push(...slide.images);
+    });
+    return images;
+}
+
+async function createPDFWithImages(imagePaths) {
+    const pdfDoc = await PDFDocument.create();
+
+    for (const imgPath of imagePaths) {
+        const imageBytes = fs.readFileSync(imgPath);
+        const img = await pdfDoc.embedJpg(imageBytes);
+        const page = pdfDoc.addPage([600, 800]); // Adjust page size if needed
+        page.drawImage(img, { x: 50, y: 50, width: 500, height: 700 });
+    }
+
+    return pdfDoc.save();
+}
+
+app.post("/extract-images", upload.single("file"), async (req, res) => {
+    const { path: filePath, originalname } = req.file;
+    const ext = path.extname(originalname).toLowerCase();
+    let images = [];
+
+    try {
+        if (ext === ".pdf") images = await extractImagesFromPDF(filePath);
+        else if (ext === ".docx") images = await extractImagesFromDocx(filePath);
+        else if (ext === ".pptx") images = await extractImagesFromPPTX(filePath);
+        else return res.status(400).json({ error: "Unsupported file type." });
+
+        if (!images.length) return res.status(400).json({ error: "No images found." });
+
+        const pdfBuffer = await createPDFWithImages(images);
+        const pdfPath = "output/extracted_images.pdf";
+        fs.writeFileSync(pdfPath, pdfBuffer);
+        res.download(pdfPath);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to process file." });
+    }
+});
+
+
+
+
+
+
+
+
+
+
 
 
 // Supported languages (you can add more)
