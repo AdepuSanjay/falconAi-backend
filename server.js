@@ -25,6 +25,8 @@ if (!GOOGLE_GEMINI_API_KEY) {
     process.exit(1);
 }
 
+if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
+
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 const upload = multer({ dest: "uploads/" });
 
