@@ -7,7 +7,7 @@ const multer = require("multer");
 const pptxgen = require("pptxgenjs");
 const PDFDocument = require("pdfkit");
 require("dotenv").config();
-const { PDFDocument } = require("pdf-lib");
+
 const mammoth = require("mammoth");
 const pptx2json = require("pptx2json");
 
