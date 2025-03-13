@@ -304,6 +304,8 @@ function parseGeminiResponse(responseText) {
 }
 
 // API Route to Generate PPT from Gemini AI
+
+
 app.post("/generate-ppt", async (req, res) => {
     const { topic, slidesCount } = req.body;
 
@@ -319,20 +321,23 @@ app.post("/generate-ppt", async (req, res) => {
     let prompt;
     if (isCodingTopic) {
         prompt = `
-Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-Each slide should:
-1. Have a title in "**Slide X: Title**" format.
-2. Contain bullet points explaining key concepts.
-3. Include **properly formatted code snippets** using "\`\`\`${topic.toLowerCase()}" syntax.
-4. Ensure structured explanations.
+Generate a PowerPoint presentation on **"${topic}"** with exactly ${slidesCount} slides.
 
-Example:
+### **Slide Structure**:
+1. **Slide Title**: Format as "**Slide X: Title**".
+2. **Explanation**: Provide clear, structured bullet points.
+3. **Code Snippets**: Format code properly using **"${topic.toLowerCase()}"** syntax.
 
-**Slide 1: Introduction to ${topic}**
-- ${topic} is a powerful programming language.
-- Used in web development, software engineering, and more.
+### **Example:**
+---
+#### **Slide 1: Introduction to ${topic}**
+- ${topic} is a widely used programming language.
+- It is used in web development, automation, and AI.
 
-**Slide 2: Hello World Program**
+#### **Slide 2: Hello World Example**
+**Explanation:**
+- A simple program to print "Hello, World!" in ${topic}.
+
 \`\`\`${topic.toLowerCase()}
 public class Main {
     public static void main(String[] args) {
@@ -341,36 +346,38 @@ public class Main {
 }
 \`\`\`
 
-**Slide 3: Variables and Data Types**
-- Statically typed language.
-- Example:
+#### **Slide 3: Variables and Data Types**
+**Explanation:**
+- ${topic} supports multiple data types such as int, double, and boolean.
+
+**Example Code:**
 \`\`\`${topic.toLowerCase()}
 int age = 25;
 double price = 19.99;
 boolean isAvailable = true;
 \`\`\`
 
-Ensure the response follows this exact format.
-        `;
+Ensure proper **formatting, clarity, and well-structured slides**.
+`;
     } else {
         prompt = `
-Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-Each slide should:
-1. Have a title in "**Slide X: Title**" format.
-2. Include bullet points explaining key concepts.
-3. Provide clear, structured information.
+Generate a structured PowerPoint presentation on **"${topic}"** with exactly ${slidesCount} slides.
 
-Example:
+### **Slide Structure**:
+1. **Slide Title**: Format as "**Slide X: Title**".
+2. **Content**: Bullet points explaining key concepts in simple terms.
 
-**Slide 1: Introduction to ${topic}**
+### **Example:**
+---
+#### **Slide 1: Introduction to ${topic}**
 - Definition of ${topic}.
-- Importance and applications.
+- Importance and real-world applications.
 
-**Slide 2: Key Features**
-- Feature 1
-- Feature 2
+#### **Slide 2: Key Features**
+- Feature 1: Explanation.
+- Feature 2: Explanation.
 
-Ensure the response follows this exact slide format.
+Ensure the response **follows this structured format**.
         `;
     }
 
