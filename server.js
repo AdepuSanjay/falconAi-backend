@@ -614,5 +614,31 @@ app.post("/download-resume", async (req, res) => {
     }
 });
 
+
+app.post("/solve-math", async (req, res) => {
+    try {
+        const { problem } = req.body;
+        if (!problem) {
+            return res.status(400).json({ error: "Math problem is required" });
+        }
+
+        const prompt = `Solve the following math problem step by step:\n\n${problem}`;
+        
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+            { contents: [{ parts: [{ text: prompt }] }] },
+            { headers: { "Content-Type": "application/json" } }
+        );
+
+        const solution = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Solution not found.";
+        res.json({ success: true, solution });
+
+    } catch (error) {
+        console.error("Math Solver Error:", error);
+        res.status(500).json({ error: "Failed to solve math problem" });
+    }
+});
+
+
 // Start Server
 app.listen(5000, () => console.log(`✅ Server running on port 5000`));
