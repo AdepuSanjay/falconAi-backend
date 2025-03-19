@@ -615,15 +615,23 @@ app.post("/download-resume", async (req, res) => {
 });
 
 
-app.post("/solve-math", async (req, res) => {
+app.post("/solve-math", upload.single("image"), async (req, res) => {
     try {
-        const { problem } = req.body;
+        let problem = req.body.problem || "";
+
+        if (req.file) {
+            // Perform OCR to extract text from the uploaded image
+            const { data: { text } } = await Tesseract.recognize(req.file.path, "eng");
+            problem = text.trim();
+            fs.unlinkSync(req.file.path); // Delete file after processing
+        }
+
         if (!problem) {
             return res.status(400).json({ error: "Math problem is required" });
         }
 
         const prompt = `Solve the following math problem step by step:\n\n${problem}`;
-        
+
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
             { contents: [{ parts: [{ text: prompt }] }] },
@@ -638,6 +646,9 @@ app.post("/solve-math", async (req, res) => {
         res.status(500).json({ error: "Failed to solve math problem" });
     }
 });
+
+
+    
 
 
 // Start Server
