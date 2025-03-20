@@ -8,6 +8,8 @@ const pptxgen = require("pptxgenjs");
 const PDFDocument = require("pdfkit");
 require("dotenv").config();
 const Tesseract = require("tesseract.js");
+const sizeOf = require("image-size");
+
  
 const mammoth = require("mammoth");
 const pptx2json = require("pptx2json");
@@ -403,29 +405,50 @@ Ensure the response **follows this structured format**.
 });
 
 
-// ✅ Download PPTX
-app.get("/download-pptx/:topic", async (req, res) => {
+app.post("/download-pptx", async (req, res) => {
   try {
-    const topic = req.params.topic;
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
+    const { topic, slides } = req.body;
 
-    if (!fs.existsSync(jsonPath)) {
-      return res.status(404).json({ error: "No slides found" });
+    if (!slides || slides.length === 0) {
+      return res.status(400).json({ error: "No slides to generate" });
     }
 
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     let pptx = new pptxgen();
 
     slides.forEach((slide) => {
       let pptSlide = pptx.addSlide();
-      pptSlide.addText(slide.title, { x: 1, y: 0.5, fontSize: 24, bold: true });
 
-      slide.content.forEach((point, i) => {
-        pptSlide.addText(`- ${point}`, { x: 1, y: 1 + i * 0.5, fontSize: 18 });
+      // Set background color (theme)
+      if (slide.theme) {
+        pptSlide.background = { fill: slide.theme };
+      }
+
+      // Title with custom color
+      pptSlide.addText(slide.title, {
+        x: 0.5, y: 0.5,
+        fontSize: 28,
+        bold: true,
+        color: slide.titleColor || "000000",
       });
+
+      // Content (bullet points)
+      slide.content.forEach((point, i) => {
+        pptSlide.addText(`- ${point}`, {
+          x: 0.5,
+          y: 1.5 + i * 0.5,
+          fontSize: 18,
+          color: slide.contentColor || "000000",
+        });
+      });
+
+      // Add image if provided
+      if (slide.image) {
+        pptSlide.addImage({ path: slide.image, x: 4, y: 1, w: 4, h: 3 });
+      }
     });
 
     const pptBuffer = await pptx.writeBuffer();
+
     res.set({
       "Content-Disposition": `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`,
       "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -439,52 +462,82 @@ app.get("/download-pptx/:topic", async (req, res) => {
 });
 
 
-// ✅ Download PDF
-app.get("/download-pdf/:topic", (req, res) => {
-    try {
-        const topic = req.params.topic;
-        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
-        const pdfPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pdf`;
 
-        // ✅ Check if file exists
-        if (!fs.existsSync(jsonPath)) {
-            console.error(`File not found: ${jsonPath}`);
-            return res.status(404).json({ error: "No slides found for this topic" });
-        }
+app.post("/download-pdf", (req, res) => {
+  try {
+    const { topic, slides } = req.body;
+    const pdfPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pdf`;
 
-        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-        const doc = new PDFDocument({ autoFirstPage: false });
-
-        doc.pipe(fs.createWriteStream(pdfPath));
-
-        slides.forEach((slide, index) => {
-            doc.addPage();
-            doc.fontSize(24).text(slide.title, { underline: true, align: "center" });
-
-            doc.moveDown();
-            slide.content.forEach(text => {
-                doc.fontSize(14).text(text, { align: "left" });
-                doc.moveDown();
-            });
-        });
-
-        doc.end();
-
-        // ✅ Ensure the file is available before sending
-        setTimeout(() => {
-            res.download(pdfPath, (err) => {
-                if (err) {
-                    console.error("Download error:", err);
-                    res.status(500).json({ error: "Failed to download PDF" });
-                }
-            });
-        }, 1000); // Small delay to ensure file is written
-
-    } catch (error) {
-        console.error("Error generating PDF:", error.message);
-        res.status(500).json({ error: "Failed to generate PDF" });
+    if (!slides || slides.length === 0) {
+      return res.status(400).json({ error: "No slides to generate" });
     }
+
+    const doc = new PDFDocument({ size: [792, 612] }); // 16:9 slide ratio
+
+    doc.pipe(fs.createWriteStream(pdfPath));
+
+    slides.forEach((slide) => {
+      doc.addPage();
+
+      // Apply background color
+      if (slide.theme) {
+        doc.rect(0, 0, 792, 612).fill(slide.theme);
+      }
+
+      // Title
+      doc.fillColor(slide.titleColor || "black")
+        .fontSize(24)
+        .text(slide.title, 50, 50, { align: "center" });
+
+      // Content
+      doc.fillColor(slide.contentColor || "black")
+        .fontSize(16)
+        .moveDown();
+      slide.content.forEach((text) => {
+        doc.text(`- ${text}`, { indent: 20 });
+        doc.moveDown();
+      });
+
+      // Add image if available
+      if (slide.image) {
+        try {
+          const dimensions = sizeOf(slide.image);
+          let imgWidth = dimensions.width;
+          let imgHeight = dimensions.height;
+
+          // Scale image to fit within 500x300
+          if (imgWidth > 500) {
+            imgHeight = (imgHeight / imgWidth) * 500;
+            imgWidth = 500;
+          }
+
+          doc.image(slide.image, 150, 300, { width: imgWidth, height: imgHeight });
+        } catch (error) {
+          console.warn("Error processing image:", error);
+        }
+      }
+    });
+
+    doc.end();
+
+    setTimeout(() => {
+      res.download(pdfPath, (err) => {
+        if (err) {
+          console.error("Download error:", err);
+          res.status(500).json({ error: "Failed to download PDF" });
+        }
+      });
+    }, 1000);
+  } catch (error) {
+    console.error("Error generating PDF:", error.message);
+    res.status(500).json({ error: "Failed to generate PDF" });
+  }
 });
+
+
+
+
+
 
 if (!fs.existsSync("./resumes")) fs.mkdirSync("./resumes");
 
