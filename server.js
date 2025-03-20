@@ -204,20 +204,38 @@ app.post("/translate", async (req, res) => {
   }
 });
 
+
+
+
 app.post("/update-slides", (req, res) => {
-    try {
-        const { topic, slides } = req.body;
-        const jsonPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.json`;
+  try {
+    const { topic, slides } = req.body;
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
 
-        // Save updated slides to JSON file
-        fs.writeFileSync(jsonPath, JSON.stringify(slides, null, 2), "utf-8");
-
-        res.json({ success: true, message: "Slides updated successfully" });
-    } catch (error) {
-        console.error("Error updating slides:", error.message);
-        res.status(500).json({ error: "Failed to update slides" });
+    if (!slides || slides.length === 0) {
+      return res.status(400).json({ error: "No slides to save" });
     }
+
+    // Ensure all slides have theme, colors, and images
+    const formattedSlides = slides.map((slide) => ({
+      title: slide.title || "Untitled Slide",
+      content: slide.content || [],
+      theme: slide.theme || "#FFFFFF", // Default to white
+      titleColor: slide.titleColor || "#000000", // Default to black
+      contentColor: slide.contentColor || "#000000", // Default to black
+      image: slide.image || null, // Can be null if no image
+    }));
+
+    // Save slides with all properties
+    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");
+
+    res.json({ success: true, message: "Slides updated successfully!" });
+  } catch (error) {
+    console.error("Error updating slides:", error.message);
+    res.status(500).json({ error: "Failed to update slides" });
+  }
 });
+
 
 
 
