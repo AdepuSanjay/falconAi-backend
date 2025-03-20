@@ -413,11 +413,34 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-        slidePpt.addText(slide.title, { x: 0.5, y: 0.5, fontSize: 24, bold: true });
-        slidePpt.addText(slide.content.join("\n"), { x: 0.5, y: 1.5, fontSize: 14 });
 
+        // Background color
+        slidePpt.background = { fill: slide.theme || "FFFFFF" };
+
+        // Title at the top left
+        slidePpt.addText(slide.title, {
+            x: 0.5, y: 0.3,
+            fontSize: 28,
+            bold: true,
+            color: slide.titleColor || "000000",
+        });
+
+        // Content aligned to the left, leaving space for the image
+        slidePpt.addText(slide.content.join("\n"), {
+            x: 0.5, y: 1.5,
+            fontSize: 18,
+            color: slide.contentColor || "000000",
+            w: 4, // Restrict width so image fits on the right
+        });
+
+        // Add Image on the right side, centered vertically
         if (slide.image) {
-            slidePpt.addImage({ path: slide.image, x: 1, y: 3, w: 5, h: 3 });
+            slidePpt.addImage({
+                path: slide.image,
+                x: 5.5,  // Placing it towards the right side
+                y: 1.5,  // Centering it vertically
+                w: 3, h: 3, // Size of the image
+            });
         }
     });
 
@@ -425,8 +448,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);
     res.download(pptPath);
 });
-
-
 
 
 
