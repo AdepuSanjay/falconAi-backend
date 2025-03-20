@@ -4,8 +4,9 @@ const axios = require("axios");
 const fs = require("fs");
 const path=require("path");
 const multer = require("multer");
-const pptxgen = require("pptxgenjs");
 const PDFDocument = require("pdfkit");
+const PptxGenJS = require("pptxgenjs");
+
 require("dotenv").config();
 const Tesseract = require("tesseract.js");
 const sizeOf = require("image-size");
@@ -371,48 +372,61 @@ Ensure the response **follows this structured format**.
 });
 
 
-app.get("/download-saved-pptx/:topic", (req, res) => {
-  try {
-    const topic = req.params.topic;
-    const pptxPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
 
-    if (!fs.existsSync(pptxPath)) {
-      return res.status(404).json({ error: "Saved PPTX file not found" });
+
+// Generate and Download PDF
+app.get("/download-pdf/:topic", (req, res) => {
+    const topic = req.params.topic;
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
+
+    if (!fs.existsSync(jsonPath)) {
+        return res.status(404).json({ error: "No slides found for this topic" });
     }
 
-    res.download(pptxPath, `${topic.replace(/\s/g, "_")}.pptx`, (err) => {
-      if (err) {
-        console.error("Error downloading saved PPTX:", err);
-        res.status(500).json({ error: "Failed to download PPTX" });
-      }
-    });
-  } catch (error) {
-    console.error("Error downloading saved PPTX:", error.message);
-    res.status(500).json({ error: "Failed to download PPTX" });
-  }
-});
-
-
-app.get("/download-saved-pdf/:topic", (req, res) => {
-  try {
-    const topic = req.params.topic;
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    const doc = new PDFDocument();
     const pdfPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pdf`);
 
-    if (!fs.existsSync(pdfPath)) {
-      return res.status(404).json({ error: "Saved PDF file not found" });
+    doc.pipe(fs.createWriteStream(pdfPath));
+
+    slides.forEach((slide, index) => {
+        doc.fontSize(20).text(slide.title, { underline: true }).moveDown();
+        slide.content.forEach((text) => doc.fontSize(14).text(text).moveDown());
+        doc.addPage();
+    });
+
+    doc.end();
+    res.download(pdfPath);
+});
+
+// Generate and Download PPT
+app.get("/download-ppt/:topic", async (req, res) => {
+    const topic = req.params.topic;
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
+
+    if (!fs.existsSync(jsonPath)) {
+        return res.status(404).json({ error: "No slides found for this topic" });
     }
 
-    res.download(pdfPath, `${topic.replace(/\s/g, "_")}.pdf`, (err) => {
-      if (err) {
-        console.error("Error downloading saved PDF:", err);
-        res.status(500).json({ error: "Failed to download PDF" });
-      }
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    let pptx = new PptxGenJS();
+
+    slides.forEach((slide) => {
+        let slidePpt = pptx.addSlide();
+        slidePpt.addText(slide.title, { x: 0.5, y: 0.5, fontSize: 24, bold: true });
+        slidePpt.addText(slide.content.join("\n"), { x: 0.5, y: 1.5, fontSize: 14 });
+
+        if (slide.image) {
+            slidePpt.addImage({ path: slide.image, x: 1, y: 3, w: 5, h: 3 });
+        }
     });
-  } catch (error) {
-    console.error("Error downloading saved PDF:", error.message);
-    res.status(500).json({ error: "Failed to download PDF" });
-  }
+
+    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
+    await pptx.writeFile(pptPath);
+    res.download(pptPath);
 });
+
+
 
 
 
