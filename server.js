@@ -423,136 +423,48 @@ Ensure the response **follows this structured format**.
 });
 
 
-app.post("/download-pptx", async (req, res) => {
+app.get("/download-saved-pptx/:topic", (req, res) => {
   try {
-    const { topic, slides } = req.body;
+    const topic = req.params.topic;
+    const pptxPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
 
-    if (!slides || slides.length === 0) {
-      return res.status(400).json({ error: "No slides to generate" });
+    if (!fs.existsSync(pptxPath)) {
+      return res.status(404).json({ error: "Saved PPTX file not found" });
     }
 
-    let pptx = new pptxgen();
-
-    slides.forEach((slide) => {
-      let pptSlide = pptx.addSlide();
-
-      // Set background color (theme)
-      if (slide.theme) {
-        pptSlide.background = { fill: slide.theme };
-      }
-
-      // Title with custom color
-      pptSlide.addText(slide.title, {
-        x: 0.5, y: 0.5,
-        fontSize: 28,
-        bold: true,
-        color: slide.titleColor || "000000",
-      });
-
-      // Content (bullet points)
-      slide.content.forEach((point, i) => {
-        pptSlide.addText(`- ${point}`, {
-          x: 0.5,
-          y: 1.5 + i * 0.5,
-          fontSize: 18,
-          color: slide.contentColor || "000000",
-        });
-      });
-
-      // Add image if provided
-      if (slide.image) {
-        pptSlide.addImage({ path: slide.image, x: 4, y: 1, w: 4, h: 3 });
+    res.download(pptxPath, `${topic.replace(/\s/g, "_")}.pptx`, (err) => {
+      if (err) {
+        console.error("Error downloading saved PPTX:", err);
+        res.status(500).json({ error: "Failed to download PPTX" });
       }
     });
-
-    const pptBuffer = await pptx.writeBuffer();
-
-    res.set({
-      "Content-Disposition": `attachment; filename="${topic.replace(/\s/g, "_")}.pptx"`,
-      "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    });
-
-    res.send(pptBuffer);
   } catch (error) {
-    console.error("Error generating PPT:", error);
-    res.status(500).json({ error: "Failed to generate PPT" });
+    console.error("Error downloading saved PPTX:", error.message);
+    res.status(500).json({ error: "Failed to download PPTX" });
   }
 });
 
 
-
-app.post("/download-pdf", (req, res) => {
+app.get("/download-saved-pdf/:topic", (req, res) => {
   try {
-    const { topic, slides } = req.body;
-    const pdfPath = `./generated_ppts/${topic.replace(/\s/g, "_")}.pdf`;
+    const topic = req.params.topic;
+    const pdfPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pdf`);
 
-    if (!slides || slides.length === 0) {
-      return res.status(400).json({ error: "No slides to generate" });
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ error: "Saved PDF file not found" });
     }
 
-    const doc = new PDFDocument({ size: [792, 612] }); // 16:9 slide ratio
-
-    doc.pipe(fs.createWriteStream(pdfPath));
-
-    slides.forEach((slide) => {
-      doc.addPage();
-
-      // Apply background color
-      if (slide.theme) {
-        doc.rect(0, 0, 792, 612).fill(slide.theme);
-      }
-
-      // Title
-      doc.fillColor(slide.titleColor || "black")
-        .fontSize(24)
-        .text(slide.title, 50, 50, { align: "center" });
-
-      // Content
-      doc.fillColor(slide.contentColor || "black")
-        .fontSize(16)
-        .moveDown();
-      slide.content.forEach((text) => {
-        doc.text(`- ${text}`, { indent: 20 });
-        doc.moveDown();
-      });
-
-      // Add image if available
-      if (slide.image) {
-        try {
-          const dimensions = sizeOf(slide.image);
-          let imgWidth = dimensions.width;
-          let imgHeight = dimensions.height;
-
-          // Scale image to fit within 500x300
-          if (imgWidth > 500) {
-            imgHeight = (imgHeight / imgWidth) * 500;
-            imgWidth = 500;
-          }
-
-          doc.image(slide.image, 150, 300, { width: imgWidth, height: imgHeight });
-        } catch (error) {
-          console.warn("Error processing image:", error);
-        }
+    res.download(pdfPath, `${topic.replace(/\s/g, "_")}.pdf`, (err) => {
+      if (err) {
+        console.error("Error downloading saved PDF:", err);
+        res.status(500).json({ error: "Failed to download PDF" });
       }
     });
-
-    doc.end();
-
-    setTimeout(() => {
-      res.download(pdfPath, (err) => {
-        if (err) {
-          console.error("Download error:", err);
-          res.status(500).json({ error: "Failed to download PDF" });
-        }
-      });
-    }, 1000);
   } catch (error) {
-    console.error("Error generating PDF:", error.message);
-    res.status(500).json({ error: "Failed to generate PDF" });
+    console.error("Error downloading saved PDF:", error.message);
+    res.status(500).json({ error: "Failed to download PDF" });
   }
 });
-
-
 
 
 
