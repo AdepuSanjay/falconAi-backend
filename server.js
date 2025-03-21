@@ -609,17 +609,22 @@ app.post("/download-resume", async (req, res) => {
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
     try {
-        let problem = req.body.problem || "";
+        let problem = req.body.problem?.trim() || "";
 
         if (req.file) {
-            // Perform OCR to extract text from the uploaded image
-            const { data: { text } } = await Tesseract.recognize(req.file.path, "eng");
-            problem = text.trim();
-            fs.unlinkSync(req.file.path); // Delete file after processing
+            // Perform OCR with preprocessing
+            const { data: { text } } = await Tesseract.recognize(req.file.path, "eng", {
+                tessedit_char_whitelist: "0123456789+-*/=()xX",
+                oem: 1,  // Best mode for handwritten text
+                psm: 6   // Assume a single block of text
+            });
+
+            problem = text.replace(/\s+/g, " ").trim();
+            fs.unlinkSync(req.file.path); // Clean up the uploaded file
         }
 
         if (!problem) {
-            return res.status(400).json({ error: "Math problem is required" });
+            return res.status(400).json({ error: "Math problem is required (text or image)." });
         }
 
         const prompt = `Solve the following math problem step by step:\n\n${problem}`;
@@ -631,14 +636,14 @@ app.post("/solve-math", upload.single("image"), async (req, res) => {
         );
 
         const solution = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Solution not found.";
-        res.json({ success: true, solution });
+
+        res.json({ success: true, problem, solution });
 
     } catch (error) {
         console.error("Math Solver Error:", error);
-        res.status(500).json({ error: "Failed to solve math problem" });
+        res.status(500).json({ error: "Failed to solve math problem. Please try again." });
     }
 });
-
 
     
 
