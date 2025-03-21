@@ -401,21 +401,25 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: "#D9F5F5" }; // Light background
+
+        // Apply theme color as the slide background
+        slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
         const marginTop = 1.2; // Adjusted margin for proper alignment
 
-        // **Title - Positioned on top**
+        // **Title - Positioned on top with titleColor**
         slidePpt.addText(`📌 ${slide.title}`, {
-            x: 0.5, y: marginTop, 
-            fontSize: 28, bold: true, 
-            color: "#D63384", fontFace: "Arial Black"
+            x: 0.5, y: marginTop,
+            fontSize: 28, bold: true,
+            color: slide.titleColor || "#D63384", // Apply titleColor
+            fontFace: "Arial Black"
         });
 
-        // **Content - Proper spacing below the title**
+        // **Content - Proper spacing below the title with contentColor**
         slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {
             x: 0.8, y: marginTop + 1.0, // Space below title
-            fontSize: 20, color: "#333333",
+            fontSize: 20,
+            color: slide.contentColor || "#333333", // Apply contentColor
             w: "55%", fontFace: "Calibri", lineSpacing: 28
         });
 
@@ -433,7 +437,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);
     res.download(pptPath);
 });
-
 
 
 
