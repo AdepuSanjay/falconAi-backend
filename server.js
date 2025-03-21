@@ -6,6 +6,7 @@ const path=require("path");
 const multer = require("multer");
 const PDFDocument = require("pdfkit");
 const PptxGenJS = require("pptxgenjs");
+const { exec } = require("child_process");
 
 require("dotenv").config();
 const Tesseract = require("tesseract.js");
