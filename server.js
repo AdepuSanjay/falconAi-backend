@@ -59,28 +59,31 @@ app.get("/get-slides/:topic", (req, res) => {
 
 
 // Mode 2: Handwritten Notes to Text-Based PDF
-app.post("/generate-text-pdf", upload.single("image"), async (req, res) => {
+app.post("/generate-text-pdf", upload.array("images"), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: "No images uploaded" });
+        }
 
-        const imgPath = req.file.path;
-        const extractedText = await Tesseract.recognize(imgPath, "eng", {
-            logger: (m) => console.log(m), // Logs OCR progress
-        });
+        let fullExtractedText = "";
 
-        const cleanedText = extractedText.data.text.trim();
-        if (!cleanedText) return res.status(400).json({ error: "No text detected" });
+        for (const file of req.files) {
+            const extractedText = await Tesseract.recognize(file.path, "eng");
+            fullExtractedText += extractedText.data.text.trim() + "\n\n";
+        }
 
-        // Create a formatted PDF
+        if (!fullExtractedText.trim()) {
+            return res.status(400).json({ error: "No text detected" });
+        }
+
+        // Generate PDF
         const pdfPath = `generated_pdfs/text_based_${Date.now()}.pdf`;
         const doc = new PDFDocument();
         doc.pipe(fs.createWriteStream(pdfPath));
-
-        doc.fontSize(14).text(cleanedText, { align: "left" });
+        doc.fontSize(14).text(fullExtractedText, { align: "left" });
         doc.end();
 
-        res.json({ success: true, pdfUrl: `http://localhost:3000/${pdfPath}` });
-
+        res.json({ success: true, pdfUrl: `https://falconai-backend.onrender.com/${pdfPath}`, text: fullExtractedText });
     } catch (error) {
         console.error("Error generating text-based PDF:", error);
         res.status(500).json({ error: "Failed to generate PDF" });
