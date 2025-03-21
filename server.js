@@ -400,6 +400,7 @@ app.get("/download-pdf/:topic", (req, res) => {
 });
 
 // Generate and Download PPT
+// Generate and Download PPT (Gamma AI Style)
 app.get("/download-ppt/:topic", async (req, res) => {
     const topic = req.params.topic;
     const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
@@ -413,31 +414,46 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: "F0F8FF" }; // Light theme background
+        slidePpt.background = { color: "#F4F4F4" }; // Light neutral background
 
+        // Title Styling (Gamma Style)
         slidePpt.addText(slide.title, {
-            x: 0.5,
-            y: 0.3,
-            fontSize: 28,
+            x: "5%",
+            y: 0.8, // Proper margin-top
+            fontSize: 36,
             bold: true,
-            color: "FF00FF",
+            color: "#333333", // Dark gray professional look
+            align: "center",
+            w: "90%", // Full width for a balanced look
+            fontFace: "Arial Black",
         });
 
+        // Image Positioning: Right Corner (40px from right & Centered vertically)
+        let imgWidth = 3; // Image width
+        let imgHeight = 2.5; // Image height
+        let imgX = "85%"; // Position image towards the right (40px from edge)
+        let imgY = "50%"; // Center vertically
+
+        // Content Styling: Adjust space left of image
         slidePpt.addText(slide.content.join("\n"), {
-            x: 0.5,
-            y: 1.5,
-            fontSize: 16,
-            color: "000000",
-            w: "60%",
+            x: "5%", // Start from left
+            y: 2.5, // Below title
+            fontSize: 20,
+            color: "#555555", // Soft gray for readability
+            w: "75%", // Take up space before image
+            align: "left",
+            fontFace: "Calibri",
+            lineSpacing: 28, // Proper spacing for readability
         });
 
+        // Add Image if available
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
-                x: 6, // Right side placement
-                y: 1.5,
-                w: 2.5,
-                h: 2,
+                x: imgX, // Right side (40px from right edge)
+                y: imgY, // Centered vertically
+                w: imgWidth,
+                h: imgHeight,
             });
         }
     });
@@ -446,9 +462,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);
     res.download(pptPath);
 });
-
-
-
 
 if (!fs.existsSync("./resumes")) fs.mkdirSync("./resumes");
 
