@@ -35,94 +35,58 @@ if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 const upload = multer({ dest: "uploads/" });
 
-const ASSEMBLYAI_API_KEY = "82b3071cc9fa417188a064b8ac49e4e5";
-const ASSEMBLYAI_API_URL = "https://api.assemblyai.com/v2/transcript";
 
-// 🎤 Upload Video and Process Speech-to-Text
-app.post("/process-video", upload.single("video"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No video uploaded" });
 
-    const videoPath = req.file.path;
-    const audioPath = `${videoPath}.wav`;
-    const srtPath = `${videoPath}.srt`;
-    const outputVideoPath = `uploads/subtitled_${req.file.filename}.mp4`;
 
-    console.log("📹 Video uploaded:", videoPath);
+app.post("/generate-content", async (req, res) => {
+    try {
+        const { videoTitle, videoKeywords, language } = req.body;
 
-    // Step 1️⃣: Extract Audio from Video
-    exec(`ffmpeg -i ${videoPath} -q:a 0 -map a ${audioPath}`, async (err) => {
-      if (err) return res.status(500).json({ error: "Audio extraction failed" });
-      console.log("🎵 Audio extracted:", audioPath);
-
-      // Step 2️⃣: Upload Audio to AssemblyAI
-      const audioData = fs.createReadStream(audioPath);
-      const uploadRes = await axios.post(
-        "https://api.assemblyai.com/v2/upload",
-        audioData,
-        { headers: { Authorization: ASSEMBLYAI_API_KEY } }
-      );
-
-      const audioUrl = uploadRes.data.upload_url;
-
-      // Step 3️⃣: Request Transcription
-      const transcriptRes = await axios.post(
-        ASSEMBLYAI_API_URL,
-        { audio_url: audioUrl },
-        { headers: { Authorization: ASSEMBLYAI_API_KEY, "Content-Type": "application/json" } }
-      );
-
-      const transcriptId = transcriptRes.data.id;
-
-      // Step 4️⃣: Polling for Transcription Completion
-      let transcript = "";
-      while (true) {
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
-        const result = await axios.get(`${ASSEMBLYAI_API_URL}/${transcriptId}`, {
-          headers: { Authorization: ASSEMBLYAI_API_KEY },
-        });
-
-        if (result.data.status === "completed") {
-          transcript = result.data.text;
-          break;
-        } else if (result.data.status === "failed") {
-          return res.status(500).json({ error: "Transcription failed" });
+        if (!videoTitle) {
+            return res.status(400).json({ error: "Video title is required." });
         }
-      }
 
-      console.log("📝 Transcript generated!");
+        // Default to English if no language is specified
+        const targetLanguage = language || "English";
 
-      // Step 5️⃣: Convert Transcript to SRT Format
-      const lines = transcript.split(". ");
-      let srtData = "";
-      lines.forEach((line, index) => {
-        const startTime = new Date(0, 0, 0, 0, 0, index * 2).toISOString().substr(11, 8);
-        const endTime = new Date(0, 0, 0, 0, 0, (index + 1) * 2).toISOString().substr(11, 8);
-        srtData += `${index + 1}\n${startTime} --> ${endTime}\n${line}.\n\n`;
-      });
+        // Generate AI prompt with multi-language support
+        const prompt = `
+        Generate an engaging YouTube caption, SEO-optimized hashtags, and a detailed description for the following video in ${targetLanguage}:
+        - **Title:** ${videoTitle}
+        - **Keywords:** ${videoKeywords || "None"}
 
-      fs.writeFileSync(srtPath, srtData);
-      console.log("📜 SRT file generated:", srtPath);
+        Format:
+        - Caption: [Short engaging caption]
+        - Hashtags: [Comma-separated trending hashtags]
+        - Description: [Detailed, SEO-friendly video description]
+        `;
 
-      // Step 6️⃣: Embed Subtitles into Video
-      exec(`ffmpeg -i ${videoPath} -vf subtitles=${srtPath} ${outputVideoPath}`, (err) => {
-        if (err) return res.status(500).json({ error: "Failed to embed subtitles" });
+        // Send request to Google Gemini API
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+            {
+                contents: [{ parts: [{ text: prompt }] }]
+            }
+        );
 
-        console.log("🎞️ Subtitled video created:", outputVideoPath);
-        res.json({ success: true, subtitledVideo: outputVideoPath });
-      });
-    });
+        const aiResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!aiResponse) {
+            return res.status(500).json({ error: "Failed to generate content." });
+        }
 
-  } catch (error) {
-    console.error("Video Processing Error:", error.message);
-    res.status(500).json({ error: "Video processing failed" });
-  }
+        // Extract generated content
+        const [captionLine, hashtagsLine, ...descriptionLines] = aiResponse.split("\n");
+        const caption = captionLine.replace("Caption: ", "").trim();
+        const hashtags = hashtagsLine.replace("Hashtags: ", "").trim();
+        const description = descriptionLines.join("\n").replace("Description: ", "").trim();
+
+        res.json({ caption, hashtags, description });
+
+    } catch (error) {
+        console.error("Error generating content:", error);
+        res.status(500).json({ error: "Internal server error." });
+    }
 });
-
-
-
-
-
 
 
 
