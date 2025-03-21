@@ -401,33 +401,34 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-
-        // Apply theme color as the slide background
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
-        const marginTop = 1.2; // Adjusted margin for proper alignment
+        const marginTop = 1.2; // Base margin for alignment
+        const titleY = marginTop - 0.5; // Move title up by 50px
+        const contentY = marginTop + 2.5; // Move content down by 150px
 
-        // **Title - Positioned on top with titleColor**
+        // **Title - Move Up by 50px**
         slidePpt.addText(`📌 ${slide.title}`, {
-            x: 0.5, y: marginTop,
-            fontSize: 28, bold: true,
-            color: slide.titleColor || "#D63384", // Apply titleColor
+            x: 0.5, y: titleY, 
+            fontSize: 28, bold: true, 
+            color: slide.titleColor || "#D63384", 
             fontFace: "Arial Black"
         });
 
-        // **Content - Proper spacing below the title with contentColor**
+        // **Content - Move Down by 150px & Use Professional Font**
         slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {
-            x: 0.8, y: marginTop + 1.0, // Space below title
-            fontSize: 20,
-            color: slide.contentColor || "#333333", // Apply contentColor
-            w: "55%", fontFace: "Calibri", lineSpacing: 28
+            x: 0.8, y: contentY, 
+            fontSize: 20, 
+            color: slide.contentColor || "#333333", 
+            w: "55%", fontFace: "Georgia", // Professional font style
+            lineSpacing: 28
         });
 
-        // **Image - Right aligned, same level as content**
+        // **Image - Right aligned, same level as title**
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
-                x: "65%", y: marginTop, // Aligned with title
+                x: "65%", y: titleY, 
                 w: 3, h: 2.5
             });
         }
