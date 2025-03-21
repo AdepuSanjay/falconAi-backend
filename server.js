@@ -35,9 +35,6 @@ if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 const upload = multer({ dest: "uploads/" });
 
-
-
-
 app.post("/generate-content", async (req, res) => {
     try {
         const { videoTitle, videoKeywords, language } = req.body;
@@ -49,16 +46,16 @@ app.post("/generate-content", async (req, res) => {
         // Default to English if no language is specified
         const targetLanguage = language || "English";
 
-        // Generate AI prompt with multi-language support
+        // AI Prompt with structured formatting
         const prompt = `
         Generate an engaging YouTube caption, SEO-optimized hashtags, and a detailed description for the following video in ${targetLanguage}:
         - **Title:** ${videoTitle}
         - **Keywords:** ${videoKeywords || "None"}
 
-        Format:
-        - Caption: [Short engaging caption]
-        - Hashtags: [Comma-separated trending hashtags]
-        - Description: [Detailed, SEO-friendly video description]
+        Format (strictly follow this structure without additional formatting):
+        Caption: [short catchy caption]
+        Hashtags: [comma-separated hashtags]
+        Description: [detailed SEO-friendly description]
         `;
 
         // Send request to Google Gemini API
@@ -74,11 +71,14 @@ app.post("/generate-content", async (req, res) => {
             return res.status(500).json({ error: "Failed to generate content." });
         }
 
-        // Extract generated content
-        const [captionLine, hashtagsLine, ...descriptionLines] = aiResponse.split("\n");
-        const caption = captionLine.replace("Caption: ", "").trim();
-        const hashtags = hashtagsLine.replace("Hashtags: ", "").trim();
-        const description = descriptionLines.join("\n").replace("Description: ", "").trim();
+        // Extract caption, hashtags, and description
+        const captionMatch = aiResponse.match(/Caption:\s*(.*)/);
+        const hashtagsMatch = aiResponse.match(/Hashtags:\s*(.*)/);
+        const descriptionMatch = aiResponse.match(/Description:\s*([\s\S]*)/);
+
+        const caption = captionMatch ? captionMatch[1].trim() : "";
+        const hashtags = hashtagsMatch ? hashtagsMatch[1].trim() : "";
+        const description = descriptionMatch ? descriptionMatch[1].trim() : "";
 
         res.json({ caption, hashtags, description });
 
@@ -87,6 +87,8 @@ app.post("/generate-content", async (req, res) => {
         res.status(500).json({ error: "Internal server error." });
     }
 });
+
+
 
 
 
