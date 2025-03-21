@@ -413,46 +413,35 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: "#F9F9F9" }; // Light, clean background
+        slidePpt.background = { color: "#D9F5F5" }; // Light pastel background
 
-        // Title - Centered with proper margin
-        slidePpt.addText(slide.title, {
-            x: "15%", // Centering adjustment
-            y: 0.7, // Top spacing
-            fontSize: 32,
+        // Title - Left aligned with icon
+        slidePpt.addText(`📌 ${slide.title}`, {
+            x: 0.5, y: 0.4, // Left top aligned
+            fontSize: 28,
             bold: true,
-            color: "#222222", // Professional dark gray
-            align: "center",
-            w: "70%", // Balanced width
+            color: "#D63384", // Vibrant pink for titles
             fontFace: "Arial Black",
         });
 
-        // Image (Optimized Placement - Right side, balanced position)
-        let imgWidth = 3.2; 
-        let imgHeight = 2.5;
-        let imgX = "72%"; // Adjusted for proper spacing
-        let imgY = "40%"; // Centered vertically
-
-        // Content (Left-aligned, perfectly fitting before the image)
-        slidePpt.addText(slide.content.join("\n"), {
-            x: "10%", // Proper alignment
-            y: 2.5, // Below the title
+        // Content - Left-aligned bullet points
+        slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {
+            x: 0.8, y: 1.5, // Adjusted under title
             fontSize: 20,
-            color: "#444444", // Soft dark tone for readability
-            w: "60%", // Space balanced with the image
-            align: "left",
+            color: "#333333", // Dark text for readability
+            w: "55%", // Allocating space before image
             fontFace: "Calibri",
-            lineSpacing: 30, // Perfect spacing
+            lineSpacing: 28,
         });
 
-        // Adding Image only if available
+        // Image (Right-aligned, same as UI)
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
-                x: imgX, 
-                y: imgY,
-                w: imgWidth,
-                h: imgHeight,
+                x: "65%", // Pushed to the right
+                y: 1.0, 
+                w: 3, // Controlled width
+                h: 2.5,
             });
         }
     });
@@ -461,6 +450,8 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);
     res.download(pptPath);
 });
+
+
 
 
 
