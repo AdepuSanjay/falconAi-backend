@@ -415,9 +415,11 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let slidePpt = pptx.addSlide();
         slidePpt.background = { color: "#D9F5F5" }; // Light pastel background
 
+        const marginTop = 1.5; // Shifting content down (margin-top: 100px equivalent)
+
         // Title - Left aligned with icon
         slidePpt.addText(`📌 ${slide.title}`, {
-            x: 0.5, y: 0.4, // Left top aligned
+            x: 0.5, y: marginTop, // Adjusted margin
             fontSize: 28,
             bold: true,
             color: "#D63384", // Vibrant pink for titles
@@ -426,22 +428,20 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
         // Content - Left-aligned bullet points
         slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {
-            x: 0.8, y: 1.5, // Adjusted under title
+            x: 0.8, y: marginTop + 1.2, // Shifted down
             fontSize: 20,
-            color: "#333333", // Dark text for readability
-            w: "55%", // Allocating space before image
+            color: "#333333",
+            w: "55%",
             fontFace: "Calibri",
             lineSpacing: 28,
         });
 
-        // Image (Right-aligned, same as UI)
+        // Image (Right-aligned)
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
-                x: "65%", // Pushed to the right
-                y: 1.0, 
-                w: 3, // Controlled width
-                h: 2.5,
+                x: "65%", y: marginTop + 0.8, // Adjusted down
+                w: 3, h: 2.5,
             });
         }
     });
@@ -450,8 +450,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);
     res.download(pptPath);
 });
-
-
 
 
 
