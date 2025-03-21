@@ -413,35 +413,30 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: "#D9F5F5" }; // Light pastel background
+        slidePpt.background = { color: "#D9F5F5" }; // Light background
 
-        const marginTop = 1.5; // Shifting content down (margin-top: 100px equivalent)
+        const marginTop = 1.2; // Adjusted margin for proper alignment
 
-        // Title - Left aligned with icon
+        // **Title - Positioned on top**
         slidePpt.addText(`📌 ${slide.title}`, {
-            x: 0.5, y: marginTop, // Adjusted margin
-            fontSize: 28,
-            bold: true,
-            color: "#D63384", // Vibrant pink for titles
-            fontFace: "Arial Black",
+            x: 0.5, y: marginTop, 
+            fontSize: 28, bold: true, 
+            color: "#D63384", fontFace: "Arial Black"
         });
 
-        // Content - Left-aligned bullet points
+        // **Content - Proper spacing below the title**
         slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {
-            x: 0.8, y: marginTop + 1.2, // Shifted down
-            fontSize: 20,
-            color: "#333333",
-            w: "55%",
-            fontFace: "Calibri",
-            lineSpacing: 28,
+            x: 0.8, y: marginTop + 1.0, // Space below title
+            fontSize: 20, color: "#333333",
+            w: "55%", fontFace: "Calibri", lineSpacing: 28
         });
 
-        // Image (Right-aligned)
+        // **Image - Right aligned, same level as content**
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
-                x: "65%", y: marginTop + 0.8, // Adjusted down
-                w: 3, h: 2.5,
+                x: "65%", y: marginTop, // Aligned with title
+                w: 3, h: 2.5
             });
         }
     });
