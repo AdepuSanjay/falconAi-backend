@@ -406,36 +406,34 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let slidePpt = pptx.addSlide();
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
-        const titleY = 0.5; // Top margin for title
-        const contentX = 0.5; // Left margin for content
-        const contentY = 1.5; // Space below title for content
-        const imageX = "65%"; // Align image to the right
-        const imageY = 1.2; // Align image properly with title
+        // Define Layout Positions
+        const titleX = 0.5, titleY = 0.3, titleW = "90%";
+        const contentX = 0.5, contentY = 1.5, contentW = "60%", contentH = 3.5;
+        const imageX = 7, imageY = 1.2, imageW = 3, imageH = 2.5;
 
-        // **Title - Proper Spacing & Bold**
+        // **Title - Ensuring No Overlap**
         slidePpt.addText(slide.title, {
-            x: 0.5, y: titleY,
-            fontSize: 30, bold: true,
+            x: titleX, y: titleY, w: titleW,
+            fontSize: 28, bold: true,
             color: slide.titleColor || "#D63384",
-            fontFace: "Arial Black"
+            align: "left", fontFace: "Arial Black"
         });
 
-        // **Content - Adjusted for Width & Auto Font Scaling**
+        // **Content - Text Wrapping & Scaling**
         let contentText = slide.content.join("\n");
         slidePpt.addText(contentText, {
-            x: contentX, y: contentY,
-            fontSize: 22, // Auto-adjust if needed
+            x: contentX, y: contentY, w: contentW, h: contentH,
+            fontSize: 22, // Auto-adjusts if text overflows
             color: slide.contentColor || "#333333",
-            w: "55%", fontFace: "Georgia",
-            lineSpacing: 28
+            fontFace: "Georgia",
+            lineSpacing: 28, align: "left"
         });
 
-        // **Image - Right Aligned, Properly Sized**
+        // **Image - Properly Positioned**
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
-                x: imageX, y: imageY,
-                w: 3, h: 2.5
+                x: imageX, y: imageY, w: imageW, h: imageH
             });
         }
     });
