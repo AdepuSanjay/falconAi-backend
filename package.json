@@ -12,6 +12,7 @@
   "dependencies": {
     "axios": "^1.8.2",
     "cors": "^2.8.5",
+    "pdf-poppler": "^0.2.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jimp": "^1.6.0",
