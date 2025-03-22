@@ -404,50 +404,45 @@ app.get("/download-ppt/:topic", async (req, res) => {
             let slidePpt = pptx.addSlide();
             slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
-            const titleY = 0.5;   // Title positioned near the top
-            const contentY = 1.5; // Content placed below the title
-            const imageX = 6.5;   // Image aligned to the right
-
             // **Title - Centered & Styled**
-            slidePpt.addText(`📌 ${slide.title}`, {
-                x: "5%", y: titleY,
-                fontSize: 32, bold: true,
-                color: slide.titleColor || "#D63384",
-                fontFace: "Arial Black",
-                w: "90%", align: "center"
+            slidePpt.addText(slide.title || "Untitled Slide", {
+                x: 0.5, y: 0.5, w: 9, h: 1,
+                fontSize: 24, bold: true, color: slide.titleColor || "#000000",
+                align: "center"
             });
 
-            // **Content - Properly Aligned with Bullet Points**
-            slidePpt.addText(slide.content.map(text => `• ${text}`).join("\n"), {
-                x: "5%", y: contentY,
-                fontSize: 22,
-                color: slide.contentColor || "#333333",
-                w: "50%", fontFace: "Georgia",
-                lineSpacing: 30,
-                bold: false
-            });
-
-            // **Image - Right Aligned, Auto-Resized**
-            if (slide.image && slide.image.length > 0) {
-                slidePpt.addImage({
-                    path: slide.image[0],
-                    x: imageX, y: contentY - 0.5,
-                    w: 3.5, h: 3, // Adjust size for better fitting
-                    sizing: { type: "contain", w: "auto", h: "auto" }
+            // **Content - Bullet Points**
+            if (slide.content && slide.content.length > 0) {
+                slidePpt.addText(slide.content.map(line => `• ${line}`).join("\n"), {
+                    x: 0.5, y: 1.5, w: 9, h: 4,
+                    fontSize: 18, color: slide.contentColor || "#000000",
+                    align: "left"
                 });
+            }
+
+            // **Image Handling (if available)**
+            if (slide.image && fs.existsSync(slide.image)) {
+                slidePpt.addImage({ path: slide.image, x: 6.5, y: 1.5, w: 3, h: 3 });
             }
         });
 
-        // **Save PPT & Send for Download**
-        const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
-        await pptx.writeFile(pptPath);
-        res.download(pptPath);
+        // **Use new writeFile() method**
+        const pptFilePath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
+        await pptx.writeFile({ fileName: pptFilePath });
+
+        // **Send file for download**
+        res.download(pptFilePath);
 
     } catch (error) {
         console.error("Error generating PPT:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({ error: "Failed to generate PowerPoint file" });
     }
 });
+
+
+
+
+
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
     try {
