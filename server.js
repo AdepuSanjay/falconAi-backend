@@ -45,7 +45,7 @@ const WATERMARK_FOLDER = path.join(__dirname, "watermark");
 if (!fs.existsSync(WATERMARK_FOLDER)) fs.mkdirSync(WATERMARK_FOLDER);
 
 // ✅ Remove watermark from Image
-app.post("/remove-watermark/image", upload.single("image"), async (req, res) => {
+app.post("/remove-watermark/image", upload.single("file"), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: "No image file uploaded" });
 
@@ -70,7 +70,7 @@ app.post("/remove-watermark/image", upload.single("image"), async (req, res) => 
 });
 
 // ✅ Remove watermark from PDF
-app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
+app.post("/remove-watermark/pdf", upload.single("file"), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
 
@@ -94,7 +94,7 @@ app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
 });
 
 // ✅ Remove watermark from PPT
-app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
+app.post("/remove-watermark/ppt", upload.single("file"), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: "No PPT file uploaded" });
 
