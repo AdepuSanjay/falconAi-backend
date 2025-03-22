@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
-
+const { fromPath } = require("pdf2pic");
 const path=require("path");
 
 const Jimp = require("jimp");
@@ -69,6 +69,7 @@ app.post("/remove-watermark/image", upload.single("image"), async (req, res) => 
     }
 });
 
+
 // ✅ Remove watermark from PDF
 app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
     try {
@@ -76,14 +77,37 @@ app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
 
         const pdfPath = req.file.path;
         const outputPath = path.join(WATERMARK_FOLDER, `processed_${req.file.originalname}`);
-        const textExtracted = await Tesseract.recognize(pdfPath, "eng");
+        const imageFolder = path.join(WATERMARK_FOLDER, "pdf_images");
 
-        const cleanText = textExtracted.data.text.replace(/(?:watermark|company name)/gi, ""); // Remove watermark text
+        if (!fs.existsSync(imageFolder)) fs.mkdirSync(imageFolder);
+
+        // Convert PDF to images
+        const pdf2pic = fromPath(pdfPath, {
+            density: 300, // DPI (Higher means better quality)
+            savePath: imageFolder,
+            format: "png", // Save as PNG
+            width: 1240, // A4 width
+            height: 1754, // A4 height
+        });
+
+        const images = await pdf2pic.bulk(-1); // Convert all pages
+
+        if (images.length === 0) {
+            return res.status(500).json({ error: "Failed to convert PDF to images" });
+        }
+
+        let extractedText = "";
+
+        // Process each image with Tesseract OCR
+        for (const image of images) {
+            const { data } = await Tesseract.recognize(image.path, "eng");
+            extractedText += data.text.replace(/(?:watermark|company name)/gi, "") + "\n\n";
+        }
 
         // Create a new PDF without watermark text
         const doc = new PDFDocument();
         doc.pipe(fs.createWriteStream(outputPath));
-        doc.text(cleanText, 100, 100);
+        doc.text(extractedText, 100, 100);
         doc.end();
 
         res.download(outputPath);
@@ -92,6 +116,10 @@ app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
         res.status(500).json({ error: "Failed to process PDF" });
     }
 });
+
+
+
+
 
 // ✅ Remove watermark from PPT
 app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
