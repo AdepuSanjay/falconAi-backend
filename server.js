@@ -391,55 +391,64 @@ app.get("/download-pdf/:topic", (req, res) => {
 
 
 // Generate and Download PPT
-app.get("/download-ppt/:topic", async (req, res) => {    
-    const topic = req.params.topic;    
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);    
+app.get("/download-ppt/:topic", async (req, res) => {
+    const topic = req.params.topic;
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
 
-    if (!fs.existsSync(jsonPath)) {    
-        return res.status(404).json({ error: "No slides found for this topic" });    
-    }    
+    if (!fs.existsSync(jsonPath)) {
+        return res.status(404).json({ error: "No slides found for this topic" });
+    }
 
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));    
-    let pptx = new PptxGenJS();    
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    let pptx = new PptxGenJS();
 
-    slides.forEach((slide) => {    
-        let slidePpt = pptx.addSlide();    
-        slidePpt.background = { color: slide.theme || "#FFFFFF" };    
+    slides.forEach((slide) => {
+        let slidePpt = pptx.addSlide();
+        slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
-        // **Title - Centered at Top (Bold & Professional Font)**
-        slidePpt.addText(`📌 ${slide.title}`, {    
-            x: "10%", y: "5%",    
-            w: "80%", align: "center",    
-            fontSize: 32, bold: true,     
-            color: slide.titleColor || "#D63384",     
-            fontFace: "Arial Black"    
-        });    
+        const titleY = 0.5; // Top margin for title
+        const contentX = 0.5; // Left margin for content
+        const contentY = 1.5; // Space below title for content
+        const imageX = "65%"; // Align image to the right
+        const imageY = 1.2; // Align image properly with title
 
-        // **Content - Left Aligned with Proper Spacing**    
-        slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {    
-            x: "10%", y: "20%",    
-            fontSize: 22,    
-            color: slide.contentColor || "#333333",    
-            w: "50%", h: "60%",    
-            fontFace: "Georgia",    
-            lineSpacing: 32    
-        });    
+        // **Title - Proper Spacing & Bold**
+        slidePpt.addText(slide.title, {
+            x: 0.5, y: titleY,
+            fontSize: 30, bold: true,
+            color: slide.titleColor || "#D63384",
+            fontFace: "Arial Black"
+        });
 
-        // **Image - Right Aligned, Properly Scaled**    
-        if (slide.image) {    
-            slidePpt.addImage({    
-                path: slide.image,    
-                x: "65%", y: "20%",    
-                w: "30%", h: "50%",    
-                sizing: { type: "contain", scale: 1 }    
-            });    
-        }    
-    });    
+        // **Content - Adjusted for Width & Auto Font Scaling**
+        let contentText = slide.content.join("\n");
+        slidePpt.addText(contentText, {
+            x: contentX, y: contentY,
+            fontSize: 22, // Auto-adjust if needed
+            color: slide.contentColor || "#333333",
+            w: "55%", fontFace: "Georgia",
+            lineSpacing: 28
+        });
 
-    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);    
-    await pptx.writeFile(pptPath);    
-    res.download(pptPath);    
+        // **Image - Right Aligned, Properly Sized**
+        if (slide.image) {
+            slidePpt.addImage({
+                path: slide.image,
+                x: imageX, y: imageY,
+                w: 3, h: 2.5
+            });
+        }
+    });
+
+    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
+    await pptx.writeFile(pptPath);
+    res.download(pptPath);
 });
+
+
+
+
+
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
     try {
