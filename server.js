@@ -387,6 +387,9 @@ app.get("/download-pdf/:topic", (req, res) => {
     res.download(pdfPath);
 });
 
+
+
+
 // Generate and Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
@@ -438,9 +441,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
         res.status(500).json({ error: "Failed to generate PowerPoint file" });
     }
 });
-
-
-
 
 
 
