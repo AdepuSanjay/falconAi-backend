@@ -403,33 +403,39 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let slidePpt = pptx.addSlide();
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
-        const marginTop = 1.2; // Base margin for alignment
-        const titleY = marginTop - 0.5; // Move title up by 50px
-        const contentY = marginTop + 2.5; // Move content down by 150px
+        const marginLeft = 0.8; // Adjust left margin for content
+        const titleY = 0.5; // Set title position to avoid overlap
+        const contentY = 1.5; // Move content down for better spacing
+        const imageX = 6.5; // Position image to the right side
+        const imageY = 1; // Align image with title
+        const imageWidth = 3.5; // Adjust image width
+        const imageHeight = 2.5; // Adjust image height
 
-        // **Title - Move Up by 50px**
+        // **Title - Centered and spaced correctly**
         slidePpt.addText(`📌 ${slide.title}`, {
-            x: 0.5, y: titleY, 
-            fontSize: 28, bold: true, 
+            x: marginLeft, y: titleY, 
+            fontSize: 30, bold: true, 
             color: slide.titleColor || "#D63384", 
             fontFace: "Arial Black"
         });
 
-        // **Content - Move Down by 150px & Use Professional Font**
-        slidePpt.addText(slide.content.map(text => `- ${text}`).join("\n"), {
-            x: 0.8, y: contentY, 
-            fontSize: 20, 
+        // **Content - Well spaced and aligned left**
+        let filteredContent = slide.content.filter(text => text.trim() !== "").map(text => `- ${text}`).join("\n");
+
+        slidePpt.addText(filteredContent, {
+            x: marginLeft, y: contentY, 
+            fontSize: 22, 
             color: slide.contentColor || "#333333", 
-            w: "55%", fontFace: "Georgia", // Professional font style
-            lineSpacing: 28
+            w: "55%", fontFace: "Georgia",
+            lineSpacing: 30
         });
 
-        // **Image - Right aligned, same level as title**
-        if (slide.image) {
+        // **Image - Right aligned and properly scaled**
+        if (slide.image && slide.image.length > 0) {
             slidePpt.addImage({
-                path: slide.image,
-                x: "65%", y: titleY, 
-                w: 3, h: 2.5
+                path: slide.image[0],
+                x: imageX, y: imageY, 
+                w: imageWidth, h: imageHeight
             });
         }
     });
