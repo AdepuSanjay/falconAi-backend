@@ -406,30 +406,30 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let slidePpt = pptx.addSlide();
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
 
-        // Define Layout Positions
+        // **Updated Layout**
         const titleX = 0.5, titleY = 0.3, titleW = "90%";
-        const contentX = 0.5, contentY = 1.5, contentW = "60%", contentH = 3.5;
-        const imageX = 7, imageY = 1.2, imageW = 3, imageH = 2.5;
+        const contentX = 0.5, contentY = 1.2, contentW = "70%", contentH = 3.5;
+        const imageX = 7.5, imageY = 1.2, imageW = 2.5, imageH = 2.5;  // Adjusted to align properly
 
-        // **Title - Ensuring No Overlap**
+        // **Title - No Overlap**
         slidePpt.addText(slide.title, {
             x: titleX, y: titleY, w: titleW,
-            fontSize: 28, bold: true,
+            fontSize: 26, bold: true,
             color: slide.titleColor || "#D63384",
             align: "left", fontFace: "Arial Black"
         });
 
-        // **Content - Text Wrapping & Scaling**
+        // **Content - Smaller Font, Expanded Width**
         let contentText = slide.content.join("\n");
         slidePpt.addText(contentText, {
             x: contentX, y: contentY, w: contentW, h: contentH,
-            fontSize: 22, // Auto-adjusts if text overflows
+            fontSize: 20,  // Reduced for better layout
             color: slide.contentColor || "#333333",
             fontFace: "Georgia",
-            lineSpacing: 28, align: "left"
+            lineSpacing: 26, align: "left"
         });
 
-        // **Image - Properly Positioned**
+        // **Image - Adjusted Alignment**
         if (slide.image) {
             slidePpt.addImage({
                 path: slide.image,
@@ -442,10 +442,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);
     res.download(pptPath);
 });
-
-
-
-
 
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
