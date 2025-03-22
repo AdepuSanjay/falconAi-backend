@@ -3,6 +3,8 @@ const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
 const path=require("path");
+
+const Jimp = require("jimp");
 const multer = require("multer");
 const PDFDocument = require("pdfkit");
 const PptxGenJS = require("pptxgenjs");
@@ -30,10 +32,103 @@ if (!GOOGLE_GEMINI_API_KEY) {
     process.exit(1);
 }
 
-if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
-const upload = multer({ dest: "uploads/" });
+
+
+
+const upload = multer({ dest: "watermark/" });
+
+// Ensure `watermark` folder exists
+const WATERMARK_FOLDER = path.join(__dirname, "watermark");
+if (!fs.existsSync(WATERMARK_FOLDER)) fs.mkdirSync(WATERMARK_FOLDER);
+
+// ✅ Remove watermark from Image
+app.post("/remove-watermark/image", upload.single("image"), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: "No image file uploaded" });
+
+        const imagePath = req.file.path;
+        const image = await Jimp.read(imagePath);
+
+        // Convert image to grayscale to detect watermark
+        image.greyscale();
+
+        // Apply blur to remove watermark
+        image.blur(5);
+
+        // Save processed image
+        const outputPath = path.join(WATERMARK_FOLDER, `processed_${req.file.originalname}`);
+        await image.writeAsync(outputPath);
+
+        res.download(outputPath);
+    } catch (error) {
+        console.error("Image Watermark Removal Error:", error);
+        res.status(500).json({ error: "Failed to process image" });
+    }
+});
+
+// ✅ Remove watermark from PDF
+app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
+
+        const pdfPath = req.file.path;
+        const outputPath = path.join(WATERMARK_FOLDER, `processed_${req.file.originalname}`);
+        const textExtracted = await Tesseract.recognize(pdfPath, "eng");
+
+        const cleanText = textExtracted.data.text.replace(/(?:watermark|company name)/gi, ""); // Remove watermark text
+
+        // Create a new PDF without watermark text
+        const doc = new PDFDocument();
+        doc.pipe(fs.createWriteStream(outputPath));
+        doc.text(cleanText, 100, 100);
+        doc.end();
+
+        res.download(outputPath);
+    } catch (error) {
+        console.error("PDF Watermark Removal Error:", error);
+        res.status(500).json({ error: "Failed to process PDF" });
+    }
+});
+
+// ✅ Remove watermark from PPT
+app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: "No PPT file uploaded" });
+
+        const pptPath = req.file.path;
+        const slides = JSON.parse(fs.readFileSync(pptPath, "utf-8")); // Assume JSON format for simplicity
+        let pptx = new PptxGenJS();
+
+        slides.forEach((slide) => {
+            let newSlide = pptx.addSlide();
+            let cleanTitle = slide.title.replace(/(?:watermark|company name)/gi, "");
+            let cleanContent = slide.content.map(text => text.replace(/(?:watermark|company name)/gi, ""));
+
+            newSlide.addText(cleanTitle, { x: 1, y: 0.5, fontSize: 24, bold: true });
+            newSlide.addText(cleanContent.join("\n"), { x: 1, y: 1.5, fontSize: 18 });
+        });
+
+        const outputPath = path.join(WATERMARK_FOLDER, `processed_${req.file.originalname}`);
+        await pptx.writeFile(outputPath);
+
+        res.download(outputPath);
+    } catch (error) {
+        console.error("PPT Watermark Removal Error:", error);
+        res.status(500).json({ error: "Failed to process PPT" });
+    }
+});
+
+
+
+
+
+
+
+
+
+
 
 app.post("/generate-content", async (req, res) => {
     try {
