@@ -41,6 +41,80 @@ if (!GOOGLE_GEMINI_API_KEY) {
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
 
+// Ensure 'uploads' & 'compressed_videos' directories exist
+if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
+if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
+
+
+// **Video Compression API**
+app.post("/compress", upload.single("video"), async (req, res) => {
+    try {
+        const file = req.file;
+        if (!file) return res.status(400).json({ error: "No video file uploaded" });
+
+        const targetSizeMB = parseFloat(req.body.targetSize); // User's target size in MB
+        if (!targetSizeMB || targetSizeMB <= 0) return res.status(400).json({ error: "Invalid target size" });
+
+        const inputPath = file.path;
+        const outputFilename = `compressed_${Date.now()}.mp4`;
+        const outputPath = path.join("compressed_videos", outputFilename);
+
+        // Get original file size
+        const originalSizeMB = fs.statSync(inputPath).size / (1024 * 1024); // Convert bytes to MB
+        const compressionRatio = targetSizeMB / originalSizeMB;
+
+        if (compressionRatio >= 1) {
+            return res.status(400).json({ error: "Target size must be smaller than original size" });
+        }
+
+        // Set dynamic bitrate based on size ratio
+        const bitrate = Math.max(100, Math.round(1000 * compressionRatio)) + "k"; // Minimum 100k bitrate
+
+        // FFmpeg compression
+        ffmpeg(inputPath)
+            .output(outputPath)
+            .videoCodec("libx264")
+            .audioCodec("aac")
+            .videoBitrate(bitrate)
+            .size("?x720") // Adjust to 720p for better quality
+            .on("end", () => {
+                fs.unlinkSync(inputPath); // Remove original file
+                res.json({ message: "Compression successful", downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` });
+            })
+            .on("error", (err) => {
+                console.error("FFmpeg error:", err);
+                res.status(500).json({ error: "Compression failed" });
+            })
+            .run();
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// **Download Compressed Video**
+app.get("/download/:filename", (req, res) => {
+    const filePath = path.join(__dirname, "compressed_videos", req.params.filename);
+    if (fs.existsSync(filePath)) {
+        res.download(filePath);
+    } else {
+        res.status(404).json({ error: "File not found" });
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const upload = multer({ dest: "uploads/" });
 
