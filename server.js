@@ -43,55 +43,38 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemi
 
 const upload = multer({ dest: "uploads/" });
 
-// Ensure processed folder exists
-const PROCESSED_FOLDER = path.join(__dirname, "processed_ppts");
-if (!fs.existsSync(PROCESSED_FOLDER)) fs.mkdirSync(PROCESSED_FOLDER);
-
-app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
+// **Upload & Process PPT**
+app.post("/upload", upload.single("ppt"), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: "No PPT file uploaded" });
-
         const pptPath = req.file.path;
-        const outputPath = path.join(PROCESSED_FOLDER, `processed_${req.file.originalname}`);
 
-        // Read PPTX file as a buffer
-        const pptBuffer = fs.readFileSync(pptPath);
-
-        // Extract text from PPT using Mammoth
-        const extractedText = await mammoth.extractRawText({ buffer: pptBuffer });
-
-        // Remove watermarks (Modify regex based on watermark patterns)
-        const cleanText = extractedText.value.replace(/watermark|company name/gi, "");
-
-        let pptx = new PptxGenJS();
-        let slide = pptx.addSlide();
-        slide.addText(cleanText, { x: 1, y: 1, fontSize: 24 });
-
-        // Save cleaned PPTX
-        await pptx.writeFile(outputPath);
-
-        res.json({ downloadUrl: `https://falconai-backend.onrender.com/download/${path.basename(outputPath)}` });
+        // TODO: Extract slides and send text/images to frontend
+        res.json({ message: "PPT uploaded. Ready for editing.", pptPath });
     } catch (error) {
-        console.error("PPT Watermark Removal Error:", error);
-        res.status(500).json({ error: "Failed to process PPT" });
+        res.status(500).json({ error: "Error processing PPT" });
     }
 });
 
-// Endpoint to serve processed PPT files
-app.get("/download/:filename", (req, res) => {
-    const filePath = path.join(PROCESSED_FOLDER, req.params.filename);
+// **Save Edited PPT**
+app.post("/save", async (req, res) => {
+    try {
+        const { slidesData } = req.body; // Edited slide content from frontend
+        let ppt = new PptxGenJS();
 
-    // Check if file exists before sending
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: "File not found" });
+        slidesData.forEach((slideContent) => {
+            let slide = ppt.addSlide();
+            slideContent.texts.forEach((textObj) => {
+                slide.addText(textObj.text, { x: textObj.x, y: textObj.y, fontSize: 18 });
+            });
+        });
+
+        const filePath = path.join(__dirname, "output", "edited_presentation.pptx");
+        await ppt.writeFile(filePath);
+
+        res.json({ message: "PPT saved successfully!", filePath });
+    } catch (error) {
+        res.status(500).json({ error: "Error saving PPT" });
     }
-
-    res.download(filePath, (err) => {
-        if (err) {
-            console.error("Download Error:", err);
-            res.status(500).json({ error: "Failed to download file" });
-        }
-    });
 });
 
 
