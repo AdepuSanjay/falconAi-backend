@@ -2,12 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
-const { fromPath } = require("pdf2pic");
+
 const path=require("path");
  
-const Jimp = require("jimp");
+
 const multer = require("multer");
-const PDFDocument = require("pdf-lib");
+const PDFDocument = require("pdfkit");
 const PptxGenJS = require("pptxgenjs");
 const { exec } = require("child_process");
 
@@ -15,7 +15,7 @@ const { exec } = require("child_process");
 require("dotenv").config();
 const Tesseract = require("tesseract.js");
 const sizeOf = require("image-size");
-const poppler = require("pdf-poppler");
+
 
  
 const mammoth = require("mammoth");
@@ -45,66 +45,6 @@ const upload = multer({ dest: "watermark/" });
 // Ensure `watermark` folder exists
 const WATERMARK_FOLDER = path.join(__dirname, "watermark");
 if (!fs.existsSync(WATERMARK_FOLDER)) fs.mkdirSync(WATERMARK_FOLDER);
-
-// ✅ Remove watermark from Image
-
-
-// ✅ Remove watermark from PDF
-app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
-
-        const pdfPath = req.file.path;
-        const outputDir = path.join(WATERMARK_FOLDER, `pdf_images_${Date.now()}`);
-        fs.mkdirSync(outputDir, { recursive: true });
-
-        // Convert PDF pages to images
-        const popplerOptions = { format: "png", out_dir: outputDir, out_prefix: "page", scale: 200 };
-        await poppler.convert(pdfPath, popplerOptions);
-
-        const images = fs.readdirSync(outputDir).filter(file => file.endsWith(".png"));
-
-        for (const image of images) {
-            const imagePath = path.join(outputDir, image);
-            const img = await Jimp.read(imagePath);
-            
-            img.blur(3); // Apply blur to remove watermark
-            await img.writeAsync(imagePath);
-        }
-
-        // Create a new PDF from processed images
-        const newPdf = await PDFDocument.create();
-        for (const image of images) {
-            const imgPath = path.join(outputDir, image);
-            const imgBytes = fs.readFileSync(imgPath);
-            const pdfImage = await newPdf.embedPng(imgBytes);
-
-            const page = newPdf.addPage([pdfImage.width, pdfImage.height]);
-            page.drawImage(pdfImage, { x: 0, y: 0, width: pdfImage.width, height: pdfImage.height });
-        }
-
-        const modifiedPdfBytes = await newPdf.save();
-        const outputPdfPath = path.join(WATERMARK_FOLDER, `cleaned_${req.file.originalname}`);
-        fs.writeFileSync(outputPdfPath, modifiedPdfBytes);
-
-        res.download(outputPdfPath);
-    } catch (error) {
-        console.error("PDF Watermark Removal Error:", error);
-        res.status(500).json({ error: "Failed to process PDF" });
-    }
-});
-
-
-
-
-// ✅ Remove watermark from PPT
-
-
-
-
-
-
-
 
 
 
