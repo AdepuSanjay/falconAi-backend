@@ -40,32 +40,48 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemi
 
 
 
-const upload = multer({ dest: "watermark/" });
+const upload = multer({ dest: "uploads/" });
 
-// Ensure `watermark` folder exists
-const WATERMARK_FOLDER = path.join(__dirname, "watermark");
-if (!fs.existsSync(WATERMARK_FOLDER)) fs.mkdirSync(WATERMARK_FOLDER);
-
-
-
-
+// Ensure `processed_ppts` folder exists
+const PROCESSED_FOLDER = path.join(__dirname, "processed_ppts");
+if (!fs.existsSync(PROCESSED_FOLDER)) fs.mkdirSync(PROCESSED_FOLDER);
 
 app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
-    let pptx = new PptxGenJS();
-    let slides = JSON.parse(fs.readFileSync(req.file.path, "utf-8")); // Assuming JSON format
+    try {
+        if (!req.file) return res.status(400).json({ error: "No PPT file uploaded" });
 
-    slides.forEach((slide) => {
-        let newSlide = pptx.addSlide();
-        let cleanTitle = slide.title.replace(/watermark|company name/gi, "");
-        let cleanContent = slide.content.map(text => text.replace(/watermark|company name/gi, ""));
+        const pptPath = req.file.path;
+        const slides = JSON.parse(fs.readFileSync(pptPath, "utf-8")); // Assuming JSON format
+        let pptx = new PptxGenJS();
 
-        newSlide.addText(cleanTitle, { x: 1, y: 0.5, fontSize: 24, bold: true });
-        newSlide.addText(cleanContent.join("\n"), { x: 1, y: 1.5, fontSize: 18 });
-    });
+        slides.forEach((slide) => {
+            let newSlide = pptx.addSlide();
+            let cleanTitle = slide.title.replace(/watermark|company name/gi, "");
+            let cleanContent = slide.content.map(text => text.replace(/watermark|company name/gi, ""));
 
-    await pptx.writeFile(outputPath);
-    res.download(outputPath);
+            newSlide.addText(cleanTitle, { x: 1, y: 0.5, fontSize: 24, bold: true });
+            newSlide.addText(cleanContent.join("\n"), { x: 1, y: 1.5, fontSize: 18 });
+        });
+
+        const outputPath = path.join(PROCESSED_FOLDER, `processed_${req.file.originalname}`);
+        await pptx.writeFile(outputPath);
+
+        res.json({ downloadUrl: `http://localhost:5000/download/${path.basename(outputPath)}` });
+    } catch (error) {
+        console.error("PPT Watermark Removal Error:", error);
+        res.status(500).json({ error: "Failed to process PPT" });
+    }
 });
+
+// Endpoint to serve processed PPT files
+app.get("/download/:filename", (req, res) => {
+    const filePath = path.join(PROCESSED_FOLDER, req.params.filename);
+    res.download(filePath);
+});
+
+
+
+
 
 
 
