@@ -20,7 +20,8 @@ const sizeOf = require("image-size");
 
  
 const mammoth = require("mammoth");
-const pptx2json = require("pptx2json");
+const PPTX2Json = require("pptx2json");
+
 
  
 const app = express();
@@ -47,11 +48,9 @@ const upload = multer({ dest: "uploads/" });
 app.post("/upload", upload.single("ppt"), async (req, res) => {
     try {
         const pptPath = req.file.path;
+        const pptParser = new PPTX2Json(); // Instantiate pptx2json
+        const extractedSlides = await pptParser.parse(pptPath); // Parse PPT
 
-        // Convert PPT to JSON format
-        const extractedSlides = await pptx2json(pptPath);
-        
-        // Structure data for frontend
         const slidesData = extractedSlides.slides.map((slide, index) => ({
             id: index + 1,
             texts: slide.texts.map(text => ({ text, x: 1, y: 1 })) // Placeholder positions
@@ -63,10 +62,11 @@ app.post("/upload", upload.single("ppt"), async (req, res) => {
         res.status(500).json({ error: "Error processing PPT" });
     }
 });
+
 // **Save Edited PPT**
 app.post("/save", async (req, res) => {
     try {
-        const { slidesData } = req.body; // Edited slide content from frontend
+        const { slidesData } = req.body;
         let ppt = new PptxGenJS();
 
         slidesData.forEach((slideContent) => {
@@ -76,15 +76,18 @@ app.post("/save", async (req, res) => {
             });
         });
 
-        const filePath = path.join(__dirname, "output", "edited_presentation.pptx");
+        const outputDir = path.join(__dirname, "output");
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+
+        const filePath = path.join(outputDir, "edited_presentation.pptx");
         await ppt.writeFile(filePath);
 
         res.json({ message: "PPT saved successfully!", filePath });
     } catch (error) {
+        console.error("Error saving PPT:", error);
         res.status(500).json({ error: "Error saving PPT" });
     }
 });
-
 
 
 
