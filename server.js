@@ -41,6 +41,9 @@ if (!GOOGLE_GEMINI_API_KEY) {
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
 
+const upload = multer({ dest: "uploads/" }); // Move this line up
+
+
 // Ensure 'uploads' & 'compressed_videos' directories exist
 if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
 if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
@@ -115,8 +118,6 @@ app.get("/download/:filename", (req, res) => {
 
 
 
-
-const upload = multer({ dest: "uploads/" });
 
 // **Upload & Process PPT**
 app.post("/upload", upload.single("ppt"), async (req, res) => {
