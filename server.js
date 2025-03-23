@@ -7,13 +7,16 @@ const path=require("path");
 
 const Jimp = require("jimp");
 const multer = require("multer");
-const PDFDocument = require("pdfkit");
+const PDFDocument = require("pdf-lib");
 const PptxGenJS = require("pptxgenjs");
 const { exec } = require("child_process");
+
+
 
 require("dotenv").config();
 const Tesseract = require("tesseract.js");
 const sizeOf = require("image-size");
+const poppler = require("pdf-poppler");
 
  
 const mammoth = require("mammoth");
@@ -76,47 +79,44 @@ app.post("/remove-watermark/pdf", upload.single("pdf"), async (req, res) => {
         if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
 
         const pdfPath = req.file.path;
-        const outputPath = path.join(WATERMARK_FOLDER, `processed_${req.file.originalname}`);
-        const imageFolder = path.join(WATERMARK_FOLDER, "pdf_images");
+        const outputDir = path.join(WATERMARK_FOLDER, `pdf_images_${Date.now()}`);
+        fs.mkdirSync(outputDir, { recursive: true });
 
-        if (!fs.existsSync(imageFolder)) fs.mkdirSync(imageFolder);
+        // Convert PDF pages to images
+        const popplerOptions = { format: "png", out_dir: outputDir, out_prefix: "page", scale: 200 };
+        await poppler.convert(pdfPath, popplerOptions);
 
-        // Convert PDF to images
-        const pdf2pic = fromPath(pdfPath, {
-            density: 300, // DPI (Higher means better quality)
-            savePath: imageFolder,
-            format: "png", // Save as PNG
-            width: 1240, // A4 width
-            height: 1754, // A4 height
-        });
+        const images = fs.readdirSync(outputDir).filter(file => file.endsWith(".png"));
 
-        const images = await pdf2pic.bulk(-1); // Convert all pages
-
-        if (images.length === 0) {
-            return res.status(500).json({ error: "Failed to convert PDF to images" });
-        }
-
-        let extractedText = "";
-
-        // Process each image with Tesseract OCR
         for (const image of images) {
-            const { data } = await Tesseract.recognize(image.path, "eng");
-            extractedText += data.text.replace(/(?:watermark|company name)/gi, "") + "\n\n";
+            const imagePath = path.join(outputDir, image);
+            const img = await Jimp.read(imagePath);
+            
+            img.blur(3); // Apply blur to remove watermark
+            await img.writeAsync(imagePath);
         }
 
-        // Create a new PDF without watermark text
-        const doc = new PDFDocument();
-        doc.pipe(fs.createWriteStream(outputPath));
-        doc.text(extractedText, 100, 100);
-        doc.end();
+        // Create a new PDF from processed images
+        const newPdf = await PDFDocument.create();
+        for (const image of images) {
+            const imgPath = path.join(outputDir, image);
+            const imgBytes = fs.readFileSync(imgPath);
+            const pdfImage = await newPdf.embedPng(imgBytes);
 
-        res.download(outputPath);
+            const page = newPdf.addPage([pdfImage.width, pdfImage.height]);
+            page.drawImage(pdfImage, { x: 0, y: 0, width: pdfImage.width, height: pdfImage.height });
+        }
+
+        const modifiedPdfBytes = await newPdf.save();
+        const outputPdfPath = path.join(WATERMARK_FOLDER, `cleaned_${req.file.originalname}`);
+        fs.writeFileSync(outputPdfPath, modifiedPdfBytes);
+
+        res.download(outputPdfPath);
     } catch (error) {
         console.error("PDF Watermark Removal Error:", error);
         res.status(500).json({ error: "Failed to process PDF" });
     }
 });
-
 
 
 
