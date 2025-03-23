@@ -12,7 +12,6 @@ const PptxGenJS = require("pptxgenjs");
 const { exec } = require("child_process");
 
 
-
 require("dotenv").config();
 const Tesseract = require("tesseract.js");
 const sizeOf = require("image-size");
