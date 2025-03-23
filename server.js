@@ -80,9 +80,19 @@ app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
 // Endpoint to serve processed PPT files
 app.get("/download/:filename", (req, res) => {
     const filePath = path.join(PROCESSED_FOLDER, req.params.filename);
-    res.download(filePath);
-});
 
+    // Check if file exists before sending
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "File not found" });
+    }
+
+    res.download(filePath, (err) => {
+        if (err) {
+            console.error("Download Error:", err);
+            res.status(500).json({ error: "Failed to download file" });
+        }
+    });
+});
 
 
 
