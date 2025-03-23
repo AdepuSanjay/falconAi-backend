@@ -47,21 +47,29 @@ const upload = multer({ dest: "uploads/" });
 // **Upload & Process PPT**
 app.post("/upload", upload.single("ppt"), async (req, res) => {
     try {
-        const pptPath = req.file.path;
-        const pptParser = new PPTX2Json(); // Instantiate pptx2json
-        const extractedSlides = await pptParser.parse(pptPath); // Parse PPT
+        const filePath = path.join(__dirname, "uploads", req.file.filename);
 
-        const slidesData = extractedSlides.slides.map((slide, index) => ({
-            id: index + 1,
-            texts: slide.texts.map(text => ({ text, x: 1, y: 1 })) // Placeholder positions
+        let pptx = new PptxGenJS();
+        pptx.load(filePath); // Load the file
+        let slides = pptx.getSlides(); // Extract slides
+
+        let extractedData = slides.map((slide, index) => ({
+            id: index,
+            texts: slide.texts.map((text) => ({ text: text.text })),
         }));
 
-        res.json({ message: "PPT uploaded & processed.", slidesData });
+        fs.unlinkSync(filePath); // Clean up after processing
+        res.json({ slidesData: extractedData });
+
     } catch (error) {
         console.error("Error processing PPT:", error);
         res.status(500).json({ error: "Error processing PPT" });
     }
 });
+
+
+
+
 
 // **Save Edited PPT**
 app.post("/save", async (req, res) => {
