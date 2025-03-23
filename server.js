@@ -449,7 +449,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     slides.forEach((slide) => {
         let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: slide.theme || "#FFFFFF" };
+        slidePpt.background = { color: slide.theme || "#dde6edcd" };
 
         // **Updated Layout**
         const titleX = 0.5, titleY = 0.3, titleW = "90%";
