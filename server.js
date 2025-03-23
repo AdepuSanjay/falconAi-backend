@@ -4,7 +4,7 @@ const axios = require("axios");
 const fs = require("fs");
 
 const path=require("path");
- const pptx2json = require("pptx2json");
+ 
 
 const multer = require("multer");
 const PDFDocument = require("pdfkit");
