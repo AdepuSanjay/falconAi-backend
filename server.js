@@ -66,7 +66,7 @@ app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
         const outputPath = path.join(PROCESSED_FOLDER, `processed_${req.file.originalname}`);
         await pptx.writeFile(outputPath);
 
-        res.json({ downloadUrl: `http://localhost:5000/download/${path.basename(outputPath)}` });
+        res.json({ downloadUrl: `https://falconai-backend.onrender.com/download/${path.basename(outputPath)}` });
     } catch (error) {
         console.error("PPT Watermark Removal Error:", error);
         res.status(500).json({ error: "Failed to process PPT" });
