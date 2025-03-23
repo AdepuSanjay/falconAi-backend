@@ -4,7 +4,7 @@ const axios = require("axios");
 const fs = require("fs");
 
 const path=require("path");
- 
+ const pptx2json = require("pptx2json");
 
 const multer = require("multer");
 const PDFDocument = require("pdfkit");
@@ -51,19 +51,25 @@ app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
         if (!req.file) return res.status(400).json({ error: "No PPT file uploaded" });
 
         const pptPath = req.file.path;
-        const slides = JSON.parse(fs.readFileSync(pptPath, "utf-8")); // Assuming JSON format
+        const outputPath = path.join(PROCESSED_FOLDER, `processed_${req.file.originalname}`);
+
+        // Convert PPTX to JSON to extract content
+        const pptJson = await pptx2json(pptPath);
+
         let pptx = new PptxGenJS();
 
-        slides.forEach((slide) => {
+        pptJson.slides.forEach((slide) => {
             let newSlide = pptx.addSlide();
-            let cleanTitle = slide.title.replace(/watermark|company name/gi, "");
-            let cleanContent = slide.content.map(text => text.replace(/watermark|company name/gi, ""));
+            
+            // Remove watermarks from title and content
+            let cleanTitle = slide.title?.replace(/watermark|company name/gi, "") || "";
+            let cleanContent = slide.content?.map(text => text.replace(/watermark|company name/gi, "")) || [];
 
             newSlide.addText(cleanTitle, { x: 1, y: 0.5, fontSize: 24, bold: true });
             newSlide.addText(cleanContent.join("\n"), { x: 1, y: 1.5, fontSize: 18 });
         });
 
-        const outputPath = path.join(PROCESSED_FOLDER, `processed_${req.file.originalname}`);
+        // Save cleaned PPTX
         await pptx.writeFile(outputPath);
 
         res.json({ downloadUrl: `https://falconai-backend.onrender.com/download/${path.basename(outputPath)}` });
@@ -78,7 +84,6 @@ app.get("/download/:filename", (req, res) => {
     const filePath = path.join(PROCESSED_FOLDER, req.params.filename);
     res.download(filePath);
 });
-
 
 
 
