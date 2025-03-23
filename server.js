@@ -48,6 +48,30 @@ if (!fs.existsSync(WATERMARK_FOLDER)) fs.mkdirSync(WATERMARK_FOLDER);
 
 
 
+
+
+app.post("/remove-watermark/ppt", upload.single("ppt"), async (req, res) => {
+    let pptx = new PptxGenJS();
+    let slides = JSON.parse(fs.readFileSync(req.file.path, "utf-8")); // Assuming JSON format
+
+    slides.forEach((slide) => {
+        let newSlide = pptx.addSlide();
+        let cleanTitle = slide.title.replace(/watermark|company name/gi, "");
+        let cleanContent = slide.content.map(text => text.replace(/watermark|company name/gi, ""));
+
+        newSlide.addText(cleanTitle, { x: 1, y: 0.5, fontSize: 24, bold: true });
+        newSlide.addText(cleanContent.join("\n"), { x: 1, y: 1.5, fontSize: 18 });
+    });
+
+    await pptx.writeFile(outputPath);
+    res.download(outputPath);
+});
+
+
+
+
+
+
 app.post("/generate-content", async (req, res) => {
     try {
         const { videoTitle, videoKeywords, language } = req.body;
