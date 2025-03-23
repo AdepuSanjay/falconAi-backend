@@ -48,13 +48,21 @@ app.post("/upload", upload.single("ppt"), async (req, res) => {
     try {
         const pptPath = req.file.path;
 
-        // TODO: Extract slides and send text/images to frontend
-        res.json({ message: "PPT uploaded. Ready for editing.", pptPath });
+        // Convert PPT to JSON format
+        const extractedSlides = await pptx2json(pptPath);
+        
+        // Structure data for frontend
+        const slidesData = extractedSlides.slides.map((slide, index) => ({
+            id: index + 1,
+            texts: slide.texts.map(text => ({ text, x: 1, y: 1 })) // Placeholder positions
+        }));
+
+        res.json({ message: "PPT uploaded & processed.", slidesData });
     } catch (error) {
+        console.error("Error processing PPT:", error);
         res.status(500).json({ error: "Error processing PPT" });
     }
 });
-
 // **Save Edited PPT**
 app.post("/save", async (req, res) => {
     try {
