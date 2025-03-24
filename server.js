@@ -70,42 +70,44 @@ app.post("/generate-resume", async (req, res) => {
         }
 
         const prompt = `
-        Generate a professional, ATS-optimized resume with the following details:
+Generate a **professional, ATS-optimized resume** with only the given details, without placeholders or instructions.
 
-        **Personal Details:**
-        Name: ${name}
-        Email: ${email}
-        Phone: ${phone}
-        LinkedIn: ${linkedin || "N/A"}
-        GitHub: ${github || "N/A"}
+**Personal Details:**
+- **Name:** ${name}
+- **Email:** ${email}
+- **Phone:** ${phone}
+- **LinkedIn:** ${linkedin || "N/A"}
+- **GitHub:** ${github || "N/A"}
 
-        **Summary:**
-        ${summary}
+**Professional Summary:**  
+${summary}
 
-        **Work Experience:**
-        ${experience.map(exp => `- ${exp.position} at ${exp.company} (${exp.duration})\n  Responsibilities: ${exp.responsibilities}`).join("\n")}
+**Work Experience:**  
+${experience.map(exp => `- **${exp.position}** at ${exp.company} (${exp.duration})  
+  *${exp.responsibilities}*`).join("\n")}
 
-        **Education:**
-        ${education.map(edu => `- ${edu.degree}, ${edu.institution} (${edu.year})`).join("\n")}
+**Education:**  
+${education.map(edu => `- **${edu.degree}**, ${edu.institution} (${edu.year})`).join("\n")}
 
-        **Projects:**
-        ${projects.map(proj => `- ${proj.title}\n  Description: ${proj.description}\n  Tech Stack: ${proj.techStack}`).join("\n")}
+**Projects:**  
+${projects.map(proj => `- **${proj.title}**  
+  *Description:* ${proj.description}  
+  *Tech Stack:* ${proj.techStack}`).join("\n")}
 
-        **Certifications:**
-        ${certifications.map(cert => `- ${cert}`).join("\n")}
+**Certifications:**  
+${certifications.length > 0 ? certifications.map(cert => `- ${cert}`).join("\n") : "N/A"}
 
-        **Achievements:**
-        ${achievements.map(ach => `- ${ach}`).join("\n")}
+**Achievements:**  
+${achievements.length > 0 ? achievements.map(ach => `- ${ach}`).join("\n") : "N/A"}
 
-        **Skills:**
-        ${skills.join(", ")}
+**Skills:**  
+${skills.length > 0 ? skills.join(", ") : "N/A"}
 
-        **Languages:**
-        ${languages.join(", ")}
+**Languages:**  
+${languages.length > 0 ? languages.join(", ") : "N/A"}
 
-        Format this in a **clean, professional, ATS-friendly** resume structure.
-        `;
-
+Format this in a clean, professional, ATS-friendly style.
+`;
         const response = await axios.post(
             `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
             { contents: [{ parts: [{ text: prompt }] }] }
