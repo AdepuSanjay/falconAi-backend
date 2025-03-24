@@ -50,12 +50,13 @@ if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
 
 
 // **Video Compression API**
+// **Optimized Video Compression API**
 app.post("/compress", upload.single("video"), async (req, res) => {
     try {
         const file = req.file;
         if (!file) return res.status(400).json({ error: "No video file uploaded" });
 
-        const targetSizeMB = parseFloat(req.body.targetSize); // User's target size in MB
+        const targetSizeMB = parseFloat(req.body.targetSize);
         if (!targetSizeMB || targetSizeMB <= 0) return res.status(400).json({ error: "Invalid target size" });
 
         const inputPath = file.path;
@@ -63,33 +64,39 @@ app.post("/compress", upload.single("video"), async (req, res) => {
         const outputPath = path.join("compressed_videos", outputFilename);
 
         // Get original file size
-        const originalSizeMB = fs.statSync(inputPath).size / (1024 * 1024); // Convert bytes to MB
+        const originalSizeMB = fs.statSync(inputPath).size / (1024 * 1024);
         const compressionRatio = targetSizeMB / originalSizeMB;
 
         if (compressionRatio >= 1) {
             return res.status(400).json({ error: "Target size must be smaller than original size" });
         }
 
-        // Set dynamic bitrate based on size ratio
-        const bitrate = Math.max(100, Math.round(1000 * compressionRatio)) + "k"; // Minimum 100k bitrate
+        // Use CRF instead of bitrate for better speed
+        const crfValue = 28; // Lower value = better quality, higher = faster compression
 
-        // FFmpeg compression
+        // **FFmpeg Optimization**
         ffmpeg(inputPath)
             .output(outputPath)
-            .videoCodec("libx264")
+            .videoCodec("libx264") // Standard codec for high compatibility
             .audioCodec("aac")
-            .videoBitrate(bitrate)
-            .size("?x720") // Adjust to 720p for better quality
+            .outputOptions([
+                "-preset ultrafast", // Fastest compression
+                `-crf ${crfValue}`, // Variable compression
+                "-r 30", // Lower FPS for faster encoding
+                "-threads 4" // Use multi-threading
+            ])
             .on("end", () => {
                 fs.unlinkSync(inputPath); // Remove original file
-                res.json({ message: "Compression successful", downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` });
+                res.json({
+                    message: "Compression successful",
+                    downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}`
+                });
             })
             .on("error", (err) => {
                 console.error("FFmpeg error:", err);
                 res.status(500).json({ error: "Compression failed" });
             })
             .run();
-
     } catch (error) {
         console.error("Error:", error);
         res.status(500).json({ error: "Internal server error" });
@@ -116,61 +123,6 @@ app.get("/download/:filename", (req, res) => {
 
 
 
-
-
-
-// **Upload & Process PPT**
-app.post("/upload", upload.single("ppt"), async (req, res) => {
-    try {
-        const filePath = path.join(__dirname, "uploads", req.file.filename);
-
-        let pptx = new PptxGenJS();
-        pptx.load(filePath); // Load the file
-        let slides = pptx.getSlides(); // Extract slides
-
-        let extractedData = slides.map((slide, index) => ({
-            id: index,
-            texts: slide.texts.map((text) => ({ text: text.text })),
-        }));
-
-        fs.unlinkSync(filePath); // Clean up after processing
-        res.json({ slidesData: extractedData });
-
-    } catch (error) {
-        console.error("Error processing PPT:", error);
-        res.status(500).json({ error: "Error processing PPT" });
-    }
-});
-
-
-
-
-
-// **Save Edited PPT**
-app.post("/save", async (req, res) => {
-    try {
-        const { slidesData } = req.body;
-        let ppt = new PptxGenJS();
-
-        slidesData.forEach((slideContent) => {
-            let slide = ppt.addSlide();
-            slideContent.texts.forEach((textObj) => {
-                slide.addText(textObj.text, { x: textObj.x, y: textObj.y, fontSize: 18 });
-            });
-        });
-
-        const outputDir = path.join(__dirname, "output");
-        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
-
-        const filePath = path.join(outputDir, "edited_presentation.pptx");
-        await ppt.writeFile(filePath);
-
-        res.json({ message: "PPT saved successfully!", filePath });
-    } catch (error) {
-        console.error("Error saving PPT:", error);
-        res.status(500).json({ error: "Error saving PPT" });
-    }
-});
 
 
 
