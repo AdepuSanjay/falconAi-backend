@@ -50,7 +50,6 @@ if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
 
 
 // **Video Compression API**
-// **Optimized Video Compression API**
 app.post("/compress", upload.single("video"), async (req, res) => {
     try {
         const file = req.file;
@@ -71,30 +70,33 @@ app.post("/compress", upload.single("video"), async (req, res) => {
             return res.status(400).json({ error: "Target size must be smaller than original size" });
         }
 
-        // Use CRF instead of bitrate for better speed
-        const crfValue = 28; // Lower value = better quality, higher = faster compression
+        const crfValue = 28;
 
-        // **FFmpeg Optimization**
+        let lastProgress = 0;
+
         ffmpeg(inputPath)
             .output(outputPath)
-            .videoCodec("libx264") // Standard codec for high compatibility
+            .videoCodec("libx264")
             .audioCodec("aac")
             .outputOptions([
-                "-preset ultrafast", // Fastest compression
-                `-crf ${crfValue}`, // Variable compression
-                "-r 30", // Lower FPS for faster encoding
-                "-threads 4" // Use multi-threading
+                "-preset ultrafast",
+                `-crf ${crfValue}`,
+                "-r 30",
+                "-threads 4"
             ])
+            .on("progress", (progress) => {
+                if (progress.percent && progress.percent > lastProgress) {
+                    lastProgress = Math.round(progress.percent);
+                    res.write(`data: ${lastProgress}\n\n`);
+                }
+            })
             .on("end", () => {
-                fs.unlinkSync(inputPath); // Remove original file
-                res.json({
-                    message: "Compression successful",
-                    downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}`
-                });
+                fs.unlinkSync(inputPath);
+                res.end(`data: 100\n\n`);
             })
             .on("error", (err) => {
                 console.error("FFmpeg error:", err);
-                res.status(500).json({ error: "Compression failed" });
+                res.end("data: error\n\n");
             })
             .run();
     } catch (error) {
@@ -112,9 +114,6 @@ app.get("/download/:filename", (req, res) => {
         res.status(404).json({ error: "File not found" });
     }
 });
-
-
-
 
 
 
