@@ -57,7 +57,7 @@ if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
 if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
 
 
-// **Video Compression API**
+// Video Compression API with progress
 app.post("/compress", upload.single("video"), async (req, res) => {
     try {
         const file = req.file;
@@ -78,33 +78,50 @@ app.post("/compress", upload.single("video"), async (req, res) => {
             return res.status(400).json({ error: "Target size must be smaller than original size" });
         }
 
-        // FFmpeg Compression with Progress
-        const ffmpegProcess = ffmpeg(inputPath)
-    .output(outputPath)
-    .videoCodec("libx264")
-    .audioCodec("aac")
-    .videoBitrate(bitrate)
-    .size("?x720")
-    .outputOptions(["-preset ultrafast"]) // Use outputOptions instead of preset
-    .on("end", () => {
-        fs.unlinkSync(inputPath); // Remove original file
-        res.json({ 
-            message: "Compression successful", 
-            downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` 
-        });
-    })
-    .on("error", (err) => {
-        console.error("FFmpeg error:", err);
-        res.status(500).json({ error: "Compression failed" });
-    })
-    .run();
+        const bitrate = Math.max(100, Math.round(1000 * compressionRatio)) + "k";
 
+        let totalDuration = 0;
+
+        // Get video duration
+        ffmpeg.ffprobe(inputPath, (err, metadata) => {
+            if (err) {
+                console.error("Error retrieving video metadata:", err);
+                return res.status(500).json({ error: "Failed to process video" });
+            }
+
+            totalDuration = metadata.format.duration;
+
+            const command = ffmpeg(inputPath)
+                .output(outputPath)
+                .videoCodec("libx264")
+                .audioCodec("aac")
+                .videoBitrate(bitrate)
+                .size("?x720")
+                .on("progress", (progress) => {
+                    if (totalDuration) {
+                        const percentage = Math.round((progress.timemark / totalDuration) * 100);
+                        io.emit("compressionProgress", { percentage });
+                    }
+                })
+                .on("end", () => {
+                    fs.unlinkSync(inputPath);
+                    io.emit("compressionProgress", { percentage: 100 });
+                    res.json({ message: "Compression successful", downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` });
+                })
+                .on("error", (err) => {
+                    console.error("FFmpeg error:", err);
+                    res.status(500).json({ error: "Compression failed" });
+                });
+
+            command.run();
+        });
     } catch (error) {
         console.error("Error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
 
+// Download route
 app.get("/download/:filename", (req, res) => {
     const filePath = path.join(__dirname, "compressed_videos", req.params.filename);
     if (fs.existsSync(filePath)) {
@@ -113,6 +130,7 @@ app.get("/download/:filename", (req, res) => {
         res.status(404).json({ error: "File not found" });
     }
 });
+
 
 
 
