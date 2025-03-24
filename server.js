@@ -80,26 +80,24 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
         // FFmpeg Compression with Progress
         const ffmpegProcess = ffmpeg(inputPath)
-            .output(outputPath)
-            .videoCodec("libx264")
-            .audioCodec("aac")
-            .videoBitrate("1000k")
-            .size("?x720")
-            .preset("ultrafast") // Speed up processing
-            .outputOptions(["-crf 28", "-threads 4", "-progress pipe:1"]) // Quality control and multi-threading
-            .on("progress", (progress) => {
-                const percent = Math.round(progress.percent);
-                io.emit("progress", percent); // Send progress updates
-            })
-            .on("end", () => {
-                fs.unlinkSync(inputPath); // Remove original file
-                res.json({ message: "Compression successful", downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` });
-            })
-            .on("error", (err) => {
-                console.error("FFmpeg error:", err);
-                res.status(500).json({ error: "Compression failed" });
-            })
-            .run();
+    .output(outputPath)
+    .videoCodec("libx264")
+    .audioCodec("aac")
+    .videoBitrate(bitrate)
+    .size("?x720")
+    .outputOptions(["-preset ultrafast"]) // Use outputOptions instead of preset
+    .on("end", () => {
+        fs.unlinkSync(inputPath); // Remove original file
+        res.json({ 
+            message: "Compression successful", 
+            downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` 
+        });
+    })
+    .on("error", (err) => {
+        console.error("FFmpeg error:", err);
+        res.status(500).json({ error: "Compression failed" });
+    })
+    .run();
 
     } catch (error) {
         console.error("Error:", error);
