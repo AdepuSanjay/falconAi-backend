@@ -57,82 +57,114 @@ if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
 if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
 
 
-// Video Compression API with progress
-app.post("/compress", upload.single("video"), async (req, res) => {
+// Ensure 'generated_resumes' folder exists
+if (!fs.existsSync("./generated_resumes")) fs.mkdirSync("./generated_resumes");
+
+
+
+
+/**
+ * Generates a professional resume using Gemini AI
+ */
+app.post("/generate-resume", async (req, res) => {
     try {
-        const file = req.file;
-        if (!file) return res.status(400).json({ error: "No video file uploaded" });
+        const { name, email, phone, linkedin, github, summary, experience, skills, education, projects, certifications, achievements, languages } = req.body;
 
-        const targetSizeMB = parseFloat(req.body.targetSize);
-        if (!targetSizeMB || targetSizeMB <= 0) return res.status(400).json({ error: "Invalid target size" });
-
-        const inputPath = file.path;
-        const outputFilename = `compressed_${Date.now()}.mp4`;
-        const outputPath = path.join("compressed_videos", outputFilename);
-
-        // Get original file size
-        const originalSizeMB = fs.statSync(inputPath).size / (1024 * 1024);
-        const compressionRatio = targetSizeMB / originalSizeMB;
-
-        if (compressionRatio >= 1) {
-            return res.status(400).json({ error: "Target size must be smaller than original size" });
+        if (!name || !email || !phone || !summary || !experience || !skills || !education) {
+            return res.status(400).json({ error: "Missing required fields" });
         }
 
-        const bitrate = Math.max(100, Math.round(1000 * compressionRatio)) + "k";
+        const prompt = `
+        Generate a professional, ATS-optimized resume with the following details:
 
-        let totalDuration = 0;
+        **Personal Details:**
+        Name: ${name}
+        Email: ${email}
+        Phone: ${phone}
+        LinkedIn: ${linkedin || "N/A"}
+        GitHub: ${github || "N/A"}
 
-        // Get video duration
-        ffmpeg.ffprobe(inputPath, (err, metadata) => {
-            if (err) {
-                console.error("Error retrieving video metadata:", err);
-                return res.status(500).json({ error: "Failed to process video" });
-            }
+        **Summary:**
+        ${summary}
 
-            totalDuration = metadata.format.duration;
+        **Work Experience:**
+        ${experience.map(exp => `- ${exp.position} at ${exp.company} (${exp.duration})\n  Responsibilities: ${exp.responsibilities}`).join("\n")}
 
-            const command = ffmpeg(inputPath)
-                .output(outputPath)
-                .videoCodec("libx264")
-                .audioCodec("aac")
-                .videoBitrate(bitrate)
-                .size("?x720")
-                .on("progress", (progress) => {
-                    if (totalDuration) {
-                        const percentage = Math.round((progress.timemark / totalDuration) * 100);
-                        io.emit("compressionProgress", { percentage });
-                    }
-                })
-                .on("end", () => {
-                    fs.unlinkSync(inputPath);
-                    io.emit("compressionProgress", { percentage: 100 });
-                    res.json({ message: "Compression successful", downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` });
-                })
-                .on("error", (err) => {
-                    console.error("FFmpeg error:", err);
-                    res.status(500).json({ error: "Compression failed" });
-                });
+        **Education:**
+        ${education.map(edu => `- ${edu.degree}, ${edu.institution} (${edu.year})`).join("\n")}
 
-            command.run();
-        });
+        **Projects:**
+        ${projects.map(proj => `- ${proj.title}\n  Description: ${proj.description}\n  Tech Stack: ${proj.techStack}`).join("\n")}
+
+        **Certifications:**
+        ${certifications.map(cert => `- ${cert}`).join("\n")}
+
+        **Achievements:**
+        ${achievements.map(ach => `- ${ach}`).join("\n")}
+
+        **Skills:**
+        ${skills.join(", ")}
+
+        **Languages:**
+        ${languages.join(", ")}
+
+        Format this in a **clean, professional, ATS-friendly** resume structure.
+        `;
+
+        const response = await axios.post(
+            `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
+            { contents: [{ parts: [{ text: prompt }] }] }
+        );
+
+        const aiResume = response.data.candidates[0].content.parts[0].text;
+
+        // Save resume as a text file (optional)
+        const textFilePath = `generated_resumes/resume_${Date.now()}.txt`;
+        fs.writeFileSync(textFilePath, aiResume);
+
+        res.json({ message: "Resume generated successfully", resume: aiResume });
     } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error generating resume:", error);
+        res.status(500).json({ error: "Failed to generate resume" });
     }
 });
 
-// Download route
+/**
+ * Converts AI-generated resume into a downloadable PDF
+ */
+app.post("/generate-pdf", (req, res) => {
+    try {
+        const { resumeContent, fileName } = req.body;
+        if (!resumeContent || !fileName) return res.status(400).json({ error: "Invalid data" });
+
+        const doc = new PDFDocument();
+        const pdfPath = `generated_resumes/${fileName}.pdf`;
+        const stream = fs.createWriteStream(pdfPath);
+
+        doc.pipe(stream);
+        doc.fontSize(12).text(resumeContent, { align: "left" });
+        doc.end();
+
+        stream.on("finish", () => {
+            res.json({ message: "PDF created", downloadUrl: `https://falconai-backend.onrender.com/download/${fileName}.pdf` });
+        });
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        res.status(500).json({ error: "PDF generation failed" });
+    }
+});
+
+/**
+ * Endpoint to download resume PDFs
+ */
 app.get("/download/:filename", (req, res) => {
-    const filePath = path.join(__dirname, "compressed_videos", req.params.filename);
+    const filePath = path.join(__dirname, "generated_resumes", req.params.filename);
     if (fs.existsSync(filePath)) {
         res.download(filePath);
     } else {
         res.status(404).json({ error: "File not found" });
     }
 });
-
-
-
 
 
 
