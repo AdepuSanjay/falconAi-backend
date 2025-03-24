@@ -3,6 +3,8 @@ const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
+const { Server } = require("socket.io");
+const http = require("http");
 
 const path=require("path");
  
@@ -70,42 +72,35 @@ app.post("/compress", upload.single("video"), async (req, res) => {
             return res.status(400).json({ error: "Target size must be smaller than original size" });
         }
 
-        const crfValue = 28;
-
-        let lastProgress = 0;
-
-        ffmpeg(inputPath)
+        // FFmpeg Compression with Progress
+        const ffmpegProcess = ffmpeg(inputPath)
             .output(outputPath)
             .videoCodec("libx264")
             .audioCodec("aac")
-            .outputOptions([
-                "-preset ultrafast",
-                `-crf ${crfValue}`,
-                "-r 30",
-                "-threads 4"
-            ])
+            .videoBitrate("1000k")
+            .size("?x720")
+            .preset("ultrafast") // Speed up processing
+            .outputOptions(["-crf 28", "-threads 4", "-progress pipe:1"]) // Quality control and multi-threading
             .on("progress", (progress) => {
-                if (progress.percent && progress.percent > lastProgress) {
-                    lastProgress = Math.round(progress.percent);
-                    res.write(`data: ${lastProgress}\n\n`);
-                }
+                const percent = Math.round(progress.percent);
+                io.emit("progress", percent); // Send progress updates
             })
             .on("end", () => {
-                fs.unlinkSync(inputPath);
-                res.end(`data: 100\n\n`);
+                fs.unlinkSync(inputPath); // Remove original file
+                res.json({ message: "Compression successful", downloadUrl: `https://falconai-backend.onrender.com/download/${outputFilename}` });
             })
             .on("error", (err) => {
                 console.error("FFmpeg error:", err);
-                res.end("data: error\n\n");
+                res.status(500).json({ error: "Compression failed" });
             })
             .run();
+
     } catch (error) {
         console.error("Error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
 
-// **Download Compressed Video**
 app.get("/download/:filename", (req, res) => {
     const filePath = path.join(__dirname, "compressed_videos", req.params.filename);
     if (fs.existsSync(filePath)) {
@@ -114,7 +109,6 @@ app.get("/download/:filename", (req, res) => {
         res.status(404).json({ error: "File not found" });
     }
 });
-
 
 
 
