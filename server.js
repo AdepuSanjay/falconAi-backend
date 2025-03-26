@@ -531,7 +531,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let slidePpt = pptx.addSlide();  
         slidePpt.background = { color: slide.theme || "#dde6edcd" };  
 
-        const titleX = 0.5, titleY = 0.5, titleW = "90%";  
+        const titleX = 0.5, titleY = 0.5, titleW = "90%";  // Shifted title slightly down  
 
         slidePpt.addText(slide.title, {  
             x: titleX, y: titleY, w: titleW,  
@@ -540,12 +540,11 @@ app.get("/download-ppt/:topic", async (req, res) => {
             align: "left", fontFace: "Arial Black"  
         });  
 
-        let contentFont = "Lora"; // Professional font for better readability  
-        
-        // Format each point with 🔹 at the beginning only  
-        let formattedContent = slide.content.map(point => `🔹 ${point.trim()}`).join("\n\n"); // Double spacing for better clarity  
+        let contentFont = "Arial"; // Professional font for better readability  
+        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n"); // Prefix each point  
 
         if (slide.image) {  
+            // If image exists, content stays on the left, and image moves 5px left  
             slidePpt.addText(formattedContent, {  
                 x: 0.5, y: 1.5, w: "70%", h: 3.5,  
                 fontSize: 20, color: slide.contentColor || "#333333",  
@@ -554,9 +553,10 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
             slidePpt.addImage({  
                 path: slide.image,  
-                x: 7.45, y: 1.5, w: 2.5, h: 2.5  // Image moved 5px left  
+                x: 7.10, y: 1.5, w: 2.5, h: 2.5  // Image moved 5px left  
             });  
         } else {  
+            // If no image, expand content to full width  
             slidePpt.addText(formattedContent, {  
                 x: 0.5, y: 1.5, w: "95%", h: 3.5,  
                 fontSize: 20, color: slide.contentColor || "#333333",  
@@ -569,8 +569,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);  
     res.download(pptPath);  
 });
-
-
 
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
