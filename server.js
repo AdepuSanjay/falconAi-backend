@@ -553,7 +553,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
             slidePpt.addImage({  
                 path: slide.image,  
-                x: 7.10, y: 1.5, w: 2.5, h: 2.5  // Image moved 5px left  
+                x: 7.20, y: 1.5, w: 2.5, h: 2.5  // Image moved 5px left  
             });  
         } else {  
             // If no image, expand content to full width  
