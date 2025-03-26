@@ -164,12 +164,6 @@ app.get("/download/:filename", (req, res) => {
 });
 
 
-
-
-
-
-
-
 app.post("/generate-content", async (req, res) => {
     try {
         const { videoTitle, videoKeywords, language } = req.body;
@@ -279,36 +273,32 @@ app.post("/translate", async (req, res) => {
 
 
 
-app.post("/update-slides", (req, res) => {
-  try {
-    const { topic, slides } = req.body;
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
+app.post("/update-slides", (req, res) => {  
+  try {  
+    const { topic, slides, useImages } = req.body;  
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);  
+  
+    if (!slides || slides.length === 0) {  
+      return res.status(400).json({ error: "No slides to save" });  
+    }  
 
-    if (!slides || slides.length === 0) {
-      return res.status(400).json({ error: "No slides to save" });
-    }
+    const formattedSlides = slides.map((slide) => ({  
+      title: slide.title || "Untitled Slide",  
+      content: slide.content || [],  
+      theme: slide.theme || "#FFFFFF",  
+      titleColor: slide.titleColor || "#000000",  
+      contentColor: slide.contentColor || "#000000",  
+      image: useImages ? slide.image || null : null, // Save image only if useImages is true  
+    }));  
 
-    // Ensure all slides have theme, colors, and images
-    const formattedSlides = slides.map((slide) => ({
-      title: slide.title || "Untitled Slide",
-      content: slide.content || [],
-      theme: slide.theme || "#FFFFFF", // Default to white
-      titleColor: slide.titleColor || "#000000", // Default to black
-      contentColor: slide.contentColor || "#000000", // Default to black
-      image: slide.image || null, // Can be null if no image
-    }));
+    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");  
 
-    // Save slides with all properties
-    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");
-
-    res.json({ success: true, message: "Slides updated successfully!" });
-  } catch (error) {
-    console.error("Error updating slides:", error.message);
-    res.status(500).json({ error: "Failed to update slides" });
-  }
+    res.json({ success: true, message: "Slides updated successfully!" });  
+  } catch (error) {  
+    console.error("Error updating slides:", error.message);  
+    res.status(500).json({ error: "Failed to update slides" });  
+  }  
 });
-
-
 
 
 // ✅ AI-Powered Search using Google Gemini
@@ -526,56 +516,53 @@ app.get("/download-pdf/:topic", (req, res) => {
 
 
 // Generate and Download PPT
-app.get("/download-ppt/:topic", async (req, res) => {
-    const topic = req.params.topic;
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
+app.get("/download-ppt/:topic", async (req, res) => {  
+    const topic = req.params.topic;  
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);  
 
-    if (!fs.existsSync(jsonPath)) {
-        return res.status(404).json({ error: "No slides found for this topic" });
-    }
+    if (!fs.existsSync(jsonPath)) {  
+        return res.status(404).json({ error: "No slides found for this topic" });  
+    }  
 
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-    let pptx = new PptxGenJS();
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));  
+    let pptx = new PptxGenJS();  
 
-    slides.forEach((slide) => {
-        let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: slide.theme || "#dde6edcd" };
+    slides.forEach((slide) => {  
+        let slidePpt = pptx.addSlide();  
+        slidePpt.background = { color: slide.theme || "#dde6edcd" };  
 
-        // **Updated Layout**
-        const titleX = 0.5, titleY = 0.3, titleW = "90%";
-        const contentX = 0.5, contentY = 1.2, contentW = "70%", contentH = 3.5;
-        const imageX = 7.5, imageY = 1.2, imageW = 2.5, imageH = 2.5;  // Adjusted to align properly
+        const titleX = 0.5, titleY = 0.3, titleW = "90%";  
+        const contentX = 0.5, contentY = 1.2, contentW = "70%", contentH = 3.5;  
+        const imageX = 7.5, imageY = 1.2, imageW = 2.5, imageH = 2.5;  
 
-        // **Title - No Overlap**
-        slidePpt.addText(slide.title, {
-            x: titleX, y: titleY, w: titleW,
-            fontSize: 26, bold: true,
-            color: slide.titleColor || "#D63384",
-            align: "left", fontFace: "Arial Black"
-        });
+        slidePpt.addText(slide.title, {  
+            x: titleX, y: titleY, w: titleW,  
+            fontSize: 26, bold: true,  
+            color: slide.titleColor || "#D63384",  
+            align: "left", fontFace: "Arial Black"  
+        });  
 
-        // **Content - Smaller Font, Expanded Width**
-        let contentText = slide.content.join("\n");
-        slidePpt.addText(contentText, {
-            x: contentX, y: contentY, w: contentW, h: contentH,
-            fontSize: 20,  // Reduced for better layout
-            color: slide.contentColor || "#333333",
-            fontFace: "Georgia",
-            lineSpacing: 26, align: "left"
-        });
+        let contentText = slide.content.join("\n");  
+        slidePpt.addText(contentText, {  
+            x: contentX, y: contentY, w: contentW, h: contentH,  
+            fontSize: 20,  
+            color: slide.contentColor || "#333333",  
+            fontFace: "Georgia",  
+            lineSpacing: 26, align: "left"  
+        });  
 
-        // **Image - Adjusted Alignment**
-        if (slide.image) {
-            slidePpt.addImage({
-                path: slide.image,
-                x: imageX, y: imageY, w: imageW, h: imageH
-            });
-        }
-    });
+        // **Only add image if it exists**  
+        if (slide.image) {  
+            slidePpt.addImage({  
+                path: slide.image,  
+                x: imageX, y: imageY, w: imageW, h: imageH  
+            });  
+        }  
+    });  
 
-    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
-    await pptx.writeFile(pptPath);
-    res.download(pptPath);
+    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);  
+    await pptx.writeFile(pptPath);  
+    res.download(pptPath);  
 });
 
 
