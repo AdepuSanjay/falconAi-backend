@@ -500,17 +500,63 @@ app.get("/download-pdf/:topic", (req, res) => {
     const doc = new PDFDocument();
     const pdfPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pdf`);
 
-    doc.pipe(fs.createWriteStream(pdfPath));
+    const writeStream = fs.createWriteStream(pdfPath);
+    doc.pipe(writeStream);
+
+    const pageHeight = 840; // Standard A4 page height for PDF
+    const margin = 40; // Margin for text
 
     slides.forEach((slide, index) => {
-        doc.fontSize(20).text(slide.title, { underline: true }).moveDown();
-        slide.content.forEach((text) => doc.fontSize(14).text(text).moveDown());
-        doc.addPage();
+        // Title Positioning
+        doc.fontSize(28).font("Arial-Bold")
+            .text(slide.title, margin, margin, { width: 520, lineBreak: true });
+        
+        let yPosition = margin + 40; // Adjust the Y position after the title
+
+        // Content Formatting (Bullet Points)
+        let contentFont = "Arial";
+        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
+        
+        // Check if there's an image and handle accordingly
+        if (slide.image) {
+            // Add content text on the left side (taking up 70% of the width)
+            doc.fontSize(20).font(contentFont)
+                .text(formattedContent, margin, yPosition, { width: 340, lineBreak: true, paragraphGap: 6 });
+
+            // Add image on the right (taking up 30% of the width)
+            const imgPath = slide.image; // Ensure this path is correct and accessible
+            const dimensions = sizeOf(imgPath);
+            const imageHeight = dimensions.height > 150 ? 150 : dimensions.height; // Resize if too large
+            doc.image(imgPath, 380, yPosition, { width: 150, height: imageHeight });
+
+            yPosition += Math.max(imageHeight, 120); // Update yPosition after the image
+        } else {
+            // No image, expand text to full width
+            doc.fontSize(20).font(contentFont)
+                .text(formattedContent, margin, yPosition, { width: 520, lineBreak: true, paragraphGap: 6 });
+            yPosition += 160; // Space between text blocks
+        }
+
+        // If not the last slide, add a page break
+        if (index < slides.length - 1) {
+            doc.addPage();
+            yPosition = margin; // Reset yPosition for the next page
+        }
     });
 
     doc.end();
-    res.download(pdfPath);
+
+    // Wait for the PDF file to be completely written before sending the response
+    writeStream.on("finish", () => {
+        res.download(pdfPath, (err) => {
+            if (err) console.error("Error sending PDF:", err);
+            else fs.unlinkSync(pdfPath); // Delete the file after download
+        });
+    });
 });
+
+
+
 
 
 
