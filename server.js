@@ -531,31 +531,36 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let slidePpt = pptx.addSlide();  
         slidePpt.background = { color: slide.theme || "#dde6edcd" };  
 
-        const titleX = 0.5, titleY = 0.3, titleW = "90%";  
-        const contentX = 0.5, contentY = 1.2, contentW = "70%", contentH = 3.5;  
-        const imageX = 7.5, imageY = 1.2, imageW = 2.5, imageH = 2.5;  
+        const titleX = 0.5, titleY = 0.5, titleW = "90%";  // Shifted title slightly down  
 
         slidePpt.addText(slide.title, {  
             x: titleX, y: titleY, w: titleW,  
-            fontSize: 26, bold: true,  
+            fontSize: 28, bold: true,  
             color: slide.titleColor || "#D63384",  
             align: "left", fontFace: "Arial Black"  
         });  
 
-        let contentText = slide.content.join("\n");  
-        slidePpt.addText(contentText, {  
-            x: contentX, y: contentY, w: contentW, h: contentH,  
-            fontSize: 20,  
-            color: slide.contentColor || "#333333",  
-            fontFace: "Georgia",  
-            lineSpacing: 26, align: "left"  
-        });  
+        let contentFont = "Lora"; // Professional font for better readability  
+        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n"); // Prefix each point  
 
-        // **Only add image if it exists**  
         if (slide.image) {  
+            // If image exists, content stays on the left  
+            slidePpt.addText(formattedContent, {  
+                x: 0.5, y: 1.5, w: "70%", h: 3.5,  
+                fontSize: 22, color: slide.contentColor || "#333333",  
+                fontFace: contentFont, lineSpacing: 28, align: "left"  
+            });  
+
             slidePpt.addImage({  
                 path: slide.image,  
-                x: imageX, y: imageY, w: imageW, h: imageH  
+                x: 7.5, y: 1.5, w: 2.5, h: 2.5  
+            });  
+        } else {  
+            // If no image, expand content to full width  
+            slidePpt.addText(formattedContent, {  
+                x: 0.5, y: 1.5, w: "95%", h: 3.5,  
+                fontSize: 22, color: slide.contentColor || "#333333",  
+                fontFace: contentFont, lineSpacing: 28, align: "left"  
             });  
         }  
     });  
@@ -564,7 +569,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     await pptx.writeFile(pptPath);  
     res.download(pptPath);  
 });
-
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
     try {
