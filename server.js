@@ -476,33 +476,44 @@ app.get("/download-pdf/:topic", (req, res) => {
 
     const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     const pdfPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pdf`);
-    const doc = new PDFDocument({ size: "A4", margin: 40 });
+    
+    const doc = new PDFDocument({
+        size: [792, 612], // Matches PowerPoint slide dimensions (11 x 8.5 inches in points)
+        margins: { top: 40, bottom: 40, left: 40, right: 40 }
+    });
 
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
     slides.forEach((slide, index) => {
-        // Title styling (left-aligned, larger font)
-        doc.font("Helvetica-Bold").fontSize(24).fillColor("#D63384")
-            .text(slide.title, { width: 500, align: "left" });
+        // Slide background color (Not fully supported in PDFKit)
+        doc.rect(0, 0, doc.page.width, doc.page.height).fill(slide.theme || "#dde6edcd");
+        
+        // Title Styling
+        doc.fillColor(slide.titleColor || "#D63384")
+            .font("Helvetica-Bold")
+            .fontSize(28)
+            .text(slide.title, 50, 50, { width: 500, align: "left" });
 
-        let yPosition = doc.y + 20; // Adjust vertical spacing
+        let yPosition = 120; // Start position for content
 
-        // Content styling (bullet points)
-        doc.font("Helvetica").fontSize(16).fillColor("#333333");
+        // Content Styling (Bullet points)
+        doc.font("Helvetica").fontSize(20).fillColor(slide.contentColor || "#333333");
+        
         slide.content.forEach(point => {
-            doc.text(`• ${point}`, { indent: 20, width: 460 });
+            doc.text(`🔹 ${point}`, 50, yPosition, { width: 460 });
+            yPosition += 30; // Line spacing
         });
 
-        // Image handling
+        // Image Handling (Positioned same as PPT)
         if (slide.image) {
             try {
                 const imgPath = slide.image;
                 const dimensions = sizeOf(imgPath);
                 const imgHeight = dimensions.height > 150 ? 150 : dimensions.height;
 
-                // Place the image on the right side
-                doc.image(imgPath, 400, yPosition, { width: 150, height: imgHeight });
+                // Place image on the right
+                doc.image(imgPath, 580, 120, { width: 150, height: imgHeight });
                 yPosition += Math.max(imgHeight, 120);
             } catch (err) {
                 console.error("Error loading image:", err);
@@ -520,13 +531,10 @@ app.get("/download-pdf/:topic", (req, res) => {
     writeStream.on("finish", () => {
         res.download(pdfPath, (err) => {
             if (err) console.error("Error sending PDF:", err);
-            else fs.unlinkSync(pdfPath);
+            else fs.unlinkSync(pdfPath); // Delete file after sending
         });
     });
 });
-
-
-
 
 // Generate and Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {  
