@@ -319,26 +319,6 @@ app.post("/ai-search", async (req, res) => {
 
 
 // ✅ Convert Speech to Text using Google Gemini
-app.post("/speech-to-text", upload.single("audio"), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
-
-        const audioBuffer = fs.readFileSync(req.file.path);
-        const base64Audio = audioBuffer.toString("base64");
-
-        const transcript = await axios.post(GEMINI_API_URL, {
-            contents: [{ parts: [{ text: "Convert this speech to text:", inline_data: { mime_type: "audio/wav", data: base64Audio } }] }]
-        }, { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } });
-
-        const text = transcript.data.candidates?.[0]?.content?.parts?.[0]?.text || "No text extracted.";
-        res.json({ text });
-
-    } catch (error) {
-        console.error("Speech-to-text error:", error.message);
-        res.status(500).json({ error: "Failed to process speech" });
-    }
-});
-
 
 // ✅ Check Slides Before Downloading
 app.get("/check-slides", (req, res) => {
