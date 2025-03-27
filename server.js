@@ -31,6 +31,9 @@ const app = express();
 app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
 app.use(express.json());
 
+
+const upload = multer({ dest: "uploads/" });
+
 // Ensure 'generated_ppts' folder exists
 if (!fs.existsSync("./generated_ppts")) fs.mkdirSync("./generated_ppts");
 
