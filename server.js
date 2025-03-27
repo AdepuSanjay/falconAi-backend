@@ -44,16 +44,7 @@ if (!GOOGLE_GEMINI_API_KEY) {
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
 
-const upload = multer({ dest: "/tmp/uploads/" });
 
-// Ensure the '/tmp/uploads' directory exists
-if (!fs.existsSync("/tmp/uploads")) {
-    fs.mkdirSync("/tmp/uploads", { recursive: true });
-}
-
-// Ensure 'uploads' & 'compressed_videos' directories exist
-if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
-if (!fs.existsSync("./compressed_videos")) fs.mkdirSync("./compressed_videos");
 
 
 // Ensure 'generated_resumes' folder exists
