@@ -476,49 +476,53 @@ app.get("/download-pdf/:topic", (req, res) => {
 
     const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     const pdfPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pdf`);
-    
+
     const doc = new PDFDocument({
-        size: [792, 612], // Matches PowerPoint slide dimensions (11 x 8.5 inches in points)
-        margins: { top: 40, bottom: 40, left: 40, right: 40 }
+        size: [1920, 1080], // Same as PPT dimensions
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
     });
 
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
     slides.forEach((slide, index) => {
-        // Slide background color (Not fully supported in PDFKit)
-        doc.rect(0, 0, doc.page.width, doc.page.height).fill(slide.theme || "#dde6edcd");
-        
+        // Background color
+        doc.rect(0, 0, 1920, 1080).fill(slide.theme || "#dde6ed");
+
         // Title Styling
         doc.fillColor(slide.titleColor || "#D63384")
             .font("Helvetica-Bold")
-            .fontSize(28)
-            .text(slide.title, 50, 50, { width: 500, align: "left" });
+            .fontSize(60)
+            .text(slide.title, 100, 100, { width: 1720, align: "left" });
 
-        let yPosition = 120; // Start position for content
+        let yPosition = 250; // Start position for content
+        let textWidth = 1700; // Default full width
 
-        // Content Styling (Bullet points)
-        doc.font("Helvetica").fontSize(20).fillColor(slide.contentColor || "#333333");
-        
-        slide.content.forEach(point => {
-            doc.text(`🔹 ${point}`, 50, yPosition, { width: 460 });
-            yPosition += 30; // Line spacing
-        });
-
-        // Image Handling (Positioned same as PPT)
+        // Check if image exists
         if (slide.image) {
             try {
                 const imgPath = slide.image;
                 const dimensions = sizeOf(imgPath);
-                const imgHeight = dimensions.height > 150 ? 150 : dimensions.height;
+                const imgHeight = dimensions.height > 400 ? 400 : dimensions.height;
+                const imgWidth = dimensions.width > 400 ? 400 : dimensions.width;
 
                 // Place image on the right
-                doc.image(imgPath, 580, 120, { width: 150, height: imgHeight });
-                yPosition += Math.max(imgHeight, 120);
+                doc.image(imgPath, 1450, 250, { width: imgWidth, height: imgHeight });
+                
+                // Adjust text width to accommodate the image
+                textWidth = 1250;
             } catch (err) {
                 console.error("Error loading image:", err);
             }
         }
+
+        // Content Styling (Bullet points)
+        doc.font("Helvetica").fontSize(40).fillColor(slide.contentColor || "#333333");
+
+        slide.content.forEach(point => {
+            doc.text(`🔹 ${point}`, 100, yPosition, { width: textWidth });
+            yPosition += 80; // Line spacing
+        });
 
         // Page break for the next slide
         if (index < slides.length - 1) {
@@ -535,6 +539,9 @@ app.get("/download-pdf/:topic", (req, res) => {
         });
     });
 });
+
+
+
 
 // Generate and Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {  
