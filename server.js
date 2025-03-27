@@ -497,66 +497,55 @@ app.get("/download-pdf/:topic", (req, res) => {
     }
 
     const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-    const doc = new PDFDocument();
     const pdfPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pdf`);
+    const doc = new PDFDocument({ size: "A4", margin: 40 });
 
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
-    const pageHeight = 840; // Standard A4 page height for PDF
-    const margin = 40; // Margin for text
-
     slides.forEach((slide, index) => {
-        // Title Positioning
-        doc.fontSize(28).font("Arial-Bold")
-            .text(slide.title, margin, margin, { width: 520, lineBreak: true });
-        
-        let yPosition = margin + 40; // Adjust the Y position after the title
+        // Title styling (left-aligned, larger font)
+        doc.font("Helvetica-Bold").fontSize(24).fillColor("#D63384")
+            .text(slide.title, { width: 500, align: "left" });
 
-        // Content Formatting (Bullet Points)
-        let contentFont = "Arial";
-        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
-        
-        // Check if there's an image and handle accordingly
+        let yPosition = doc.y + 20; // Adjust vertical spacing
+
+        // Content styling (bullet points)
+        doc.font("Helvetica").fontSize(16).fillColor("#333333");
+        slide.content.forEach(point => {
+            doc.text(`• ${point}`, { indent: 20, width: 460 });
+        });
+
+        // Image handling
         if (slide.image) {
-            // Add content text on the left side (taking up 70% of the width)
-            doc.fontSize(20).font(contentFont)
-                .text(formattedContent, margin, yPosition, { width: 340, lineBreak: true, paragraphGap: 6 });
+            try {
+                const imgPath = slide.image;
+                const dimensions = sizeOf(imgPath);
+                const imgHeight = dimensions.height > 150 ? 150 : dimensions.height;
 
-            // Add image on the right (taking up 30% of the width)
-            const imgPath = slide.image; // Ensure this path is correct and accessible
-            const dimensions = sizeOf(imgPath);
-            const imageHeight = dimensions.height > 150 ? 150 : dimensions.height; // Resize if too large
-            doc.image(imgPath, 380, yPosition, { width: 150, height: imageHeight });
-
-            yPosition += Math.max(imageHeight, 120); // Update yPosition after the image
-        } else {
-            // No image, expand text to full width
-            doc.fontSize(20).font(contentFont)
-                .text(formattedContent, margin, yPosition, { width: 520, lineBreak: true, paragraphGap: 6 });
-            yPosition += 160; // Space between text blocks
+                // Place the image on the right side
+                doc.image(imgPath, 400, yPosition, { width: 150, height: imgHeight });
+                yPosition += Math.max(imgHeight, 120);
+            } catch (err) {
+                console.error("Error loading image:", err);
+            }
         }
 
-        // If not the last slide, add a page break
+        // Page break for the next slide
         if (index < slides.length - 1) {
             doc.addPage();
-            yPosition = margin; // Reset yPosition for the next page
         }
     });
 
     doc.end();
 
-    // Wait for the PDF file to be completely written before sending the response
     writeStream.on("finish", () => {
         res.download(pdfPath, (err) => {
             if (err) console.error("Error sending PDF:", err);
-            else fs.unlinkSync(pdfPath); // Delete the file after download
+            else fs.unlinkSync(pdfPath);
         });
     });
 });
-
-
-
 
 
 
