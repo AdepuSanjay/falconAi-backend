@@ -102,6 +102,18 @@ app.post("/save-ppt", async (req, res) => {
 
 
 
+app.get("/download-ppts/:filename", (req, res) => {
+    const filePath = path.join(__dirname, "generated_ppts", req.params.filename);
+    
+    if (fs.existsSync(filePath)) {
+        res.download(filePath);
+    } else {
+        res.status(404).json({ error: "PPT file not found" });
+    }
+});
+
+
+
 
 /**
  * Generates a professional resume using Gemini AI
