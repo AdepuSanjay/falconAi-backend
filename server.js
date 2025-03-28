@@ -33,6 +33,23 @@ app.use(express.json());
 
 
 const upload = multer({ dest: "uploads/" });
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, "uploads/"),
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // Limit: 10MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+            cb(null, true);
+        } else {
+            cb(new Error("Only .pptx files are allowed!"), false);
+        }
+    }
+});
+
 
 // Ensure 'generated_ppts' folder exists
 if (!fs.existsSync("./generated_ppts")) fs.mkdirSync("./generated_ppts");
