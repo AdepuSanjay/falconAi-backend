@@ -53,76 +53,50 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemi
 // Ensure 'generated_resumes' folder exists
 if (!fs.existsSync("./generated_resumes")) fs.mkdirSync("./generated_resumes");
 
-// Ensure 'processed_ppts' folder exists
-if (!fs.existsSync("./processed_ppts")) fs.mkdirSync("./processed_ppts");
 
-/**
- * Uploads a PPTX file and extracts slides as images.
- */
+// Ensure 'slides' directory exists
+if (!fs.existsSync("./slides")) fs.mkdirSync("./slides");
+
 app.post("/upload-ppt", upload.single("ppt"), async (req, res) => {
     try {
         const pptPath = req.file.path;
-        const pptx = new PPTX.Composer();
-        await pptx.load(pptPath);
+        const outputDir = `slides/${Date.now()}`;
+        fs.mkdirSync(outputDir, { recursive: true });
 
-        const slides = await pptx.compose(async pres => {
-            const slideImages = [];
-            const slidesCount = pres.getSlideCount();
-
-            for (let i = 0; i < slidesCount; i++) {
-                const slide = pres.getSlide(i);
-                const slideImage = `slide_${i + 1}.png`;
-                slideImages.push(slideImage);
-
-                // Export slide to image (dummy function, needs frontend overlay)
-                fs.writeFileSync(`./processed_ppts/${slideImage}`, "dummy-image-content");
+        // Convert PPT to images using LibreOffice or Unoconv
+        exec(`libreoffice --headless --convert-to png --outdir ${outputDir} ${pptPath}`, (error) => {
+            if (error) {
+                console.error("Conversion error:", error);
+                return res.status(500).json({ error: "Failed to process PPT" });
             }
-
-            return slideImages;
+            const imageFiles = fs.readdirSync(outputDir).map(file => `/slides/${file}`);
+            res.json({ success: true, slides: imageFiles });
         });
 
-        res.json({ message: "Slides extracted", slides });
     } catch (error) {
-        console.error("Error processing PPT:", error);
-        res.status(500).json({ error: "Failed to process PPT" });
+        console.error("Upload error:", error);
+        res.status(500).json({ error: "Upload failed" });
     }
 });
 
-/**
- * Saves the modified slides with user-painted overlays.
- */
-app.post("/save-paintings", async (req, res) => {
-    try {
-        const { modifiedSlides } = req.body;
-        if (!modifiedSlides || modifiedSlides.length === 0) return res.status(400).json({ error: "No slides provided" });
 
-        const pptx = new PPTX.Composer();
-        await pptx.compose(async pres => {
-            for (let i = 0; i < modifiedSlides.length; i++) {
-                const slide = pres.addSlide();
-                slide.addImage({ path: `./processed_ppts/${modifiedSlides[i]}` });
-            }
+app.post("/save-ppt", async (req, res) => {
+    try {
+        const { editedSlides } = req.body; // List of edited image URLs
+
+        let ppt = new PptxGenJS();
+        editedSlides.forEach((slideImage) => {
+            let slide = ppt.addSlide();
+            slide.addImage({ path: slideImage, x: 0, y: 0, w: "100%", h: "100%" });
         });
 
-        const outputPath = `./processed_ppts/edited_ppt_${Date.now()}.pptx`;
-        await pptx.save(outputPath);
+        const pptxPath = `generated_ppts/edited_ppt_${Date.now()}.pptx`;
+        await ppt.writeFile(pptxPath);
 
-        res.json({ message: "PPT updated", downloadUrl: `http://localhost:5000/download/${path.basename(outputPath)}` });
+        res.json({ success: true, downloadUrl: pptxPath });
     } catch (error) {
         console.error("Error saving PPT:", error);
-        res.status(500).json({ error: "Failed to save PPT" });
-    }
-});
-
-/**
- * Endpoint to download the modified PPTX file.
- */
-app.get("/download/:filename", (req, res) => {
-    const filePath = path.join(__dirname, "processed_ppts", req.params.filename);
-    if (fs.existsSync(filePath)) {
-        res.download(filePath);
-    } else {
-        res.status(404).json({ error: "File not found" });
+        res.status(500).json({ error: "Failed to save edited PPT" });
     }
 });
 
