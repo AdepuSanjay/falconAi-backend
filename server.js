@@ -32,14 +32,6 @@ app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
 app.use(express.json());
 
 
-const upload = multer({ dest: "uploads/" });
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, "uploads/"),
-    filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-
-// Remove this line
-// const upload = multer({ dest: "uploads/" });
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, "uploads/"),
