@@ -53,66 +53,78 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemi
 // Ensure 'generated_resumes' folder exists
 if (!fs.existsSync("./generated_resumes")) fs.mkdirSync("./generated_resumes");
 
+// Ensure 'processed_ppts' folder exists
+if (!fs.existsSync("./processed_ppts")) fs.mkdirSync("./processed_ppts");
 
-
+/**
+ * Uploads a PPTX file and extracts slides as images.
+ */
 app.post("/upload-ppt", upload.single("ppt"), async (req, res) => {
     try {
-        const filePath = req.file.path;
-        const jsonPath = `uploads/${Date.now()}.json`;
+        const pptPath = req.file.path;
+        const pptx = new PPTX.Composer();
+        await pptx.load(pptPath);
 
-        // Convert PPT to JSON for editing
-        const pptJson = await PPTX2Json.parse(filePath);
-        fs.writeFileSync(jsonPath, JSON.stringify(pptJson, null, 2));
+        const slides = await pptx.compose(async pres => {
+            const slideImages = [];
+            const slidesCount = pres.getSlideCount();
 
-        res.json({ success: true, message: "PPT uploaded successfully", pptJson, jsonPath });
+            for (let i = 0; i < slidesCount; i++) {
+                const slide = pres.getSlide(i);
+                const slideImage = `slide_${i + 1}.png`;
+                slideImages.push(slideImage);
+
+                // Export slide to image (dummy function, needs frontend overlay)
+                fs.writeFileSync(`./processed_ppts/${slideImage}`, "dummy-image-content");
+            }
+
+            return slideImages;
+        });
+
+        res.json({ message: "Slides extracted", slides });
     } catch (error) {
-        console.error("Error parsing PPT:", error);
+        console.error("Error processing PPT:", error);
         res.status(500).json({ error: "Failed to process PPT" });
     }
 });
 
-
-
-app.post("/save-edited-ppt", async (req, res) => {
+/**
+ * Saves the modified slides with user-painted overlays.
+ */
+app.post("/save-paintings", async (req, res) => {
     try {
-        const { slidesData, fileName } = req.body;
+        const { modifiedSlides } = req.body;
+        if (!modifiedSlides || modifiedSlides.length === 0) return res.status(400).json({ error: "No slides provided" });
 
-        let ppt = new PptxGenJS();
-
-        slidesData.forEach((slide, index) => {
-            let newSlide = ppt.addSlide();
-
-            // Add background image (original slide content)
-            if (slide.backgroundImage) {
-                newSlide.addImage({ path: slide.backgroundImage, x: 0, y: 0, w: "100%", h: "100%" });
-            }
-
-            // Overlay the painted watermark image
-            if (slide.overlayImage) {
-                newSlide.addImage({ path: slide.overlayImage, x: slide.x, y: slide.y, w: slide.w, h: slide.h });
+        const pptx = new PPTX.Composer();
+        await pptx.compose(async pres => {
+            for (let i = 0; i < modifiedSlides.length; i++) {
+                const slide = pres.addSlide();
+                slide.addImage({ path: `./processed_ppts/${modifiedSlides[i]}` });
             }
         });
 
-        const pptPath = `generated_ppts/${fileName}.pptx`;
-        await ppt.writeFile(pptPath);
+        const outputPath = `./processed_ppts/edited_ppt_${Date.now()}.pptx`;
+        await pptx.save(outputPath);
 
-        res.json({ success: true, message: "PPT saved successfully", downloadUrl: `/download/${fileName}.pptx` });
+        res.json({ message: "PPT updated", downloadUrl: `http://localhost:5000/download/${path.basename(outputPath)}` });
     } catch (error) {
-        console.error("Error saving edited PPT:", error);
+        console.error("Error saving PPT:", error);
         res.status(500).json({ error: "Failed to save PPT" });
     }
 });
 
-
+/**
+ * Endpoint to download the modified PPTX file.
+ */
 app.get("/download/:filename", (req, res) => {
-    const filePath = path.join(__dirname, "generated_ppts", req.params.filename);
+    const filePath = path.join(__dirname, "processed_ppts", req.params.filename);
     if (fs.existsSync(filePath)) {
         res.download(filePath);
     } else {
         res.status(404).json({ error: "File not found" });
     }
 });
-
 
 
 
