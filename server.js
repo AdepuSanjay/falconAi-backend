@@ -620,59 +620,53 @@ app.get("/download-pdf/:topic", (req, res) => {
 
 
 // Generate and Download PPT
-app.get("/download-ppt/:topic", async (req, res) => {  
-    const topic = req.params.topic;  
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);  
+app.get("/download-ppt/:topic", async (req, res) => {
+    const topic = req.params.topic;
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
 
-    if (!fs.existsSync(jsonPath)) {  
-        return res.status(404).json({ error: "No slides found for this topic" });  
-    }  
+    if (!fs.existsSync(jsonPath)) {
+        return res.status(404).json({ error: "No slides found for this topic" });
+    }
 
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));  
-    let pptx = new PptxGenJS();  
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    let pptx = new PptxGenJS();
 
-    slides.forEach((slide) => {  
-        let slidePpt = pptx.addSlide();  
-        slidePpt.background = { color: slide.theme || "#dde6edcd" };  
+    slides.forEach((slide) => {
+        let slidePpt = pptx.addSlide();
+        slidePpt.background = { color: slide.theme || "#dde6edcd" };
 
-        const titleX = 0.5, titleY = 0.5, titleW = "90%";  // Shifted title slightly down  
+        slidePpt.addText(slide.title, {
+            x: 0.5, y: 0.5, w: "90%",
+            fontSize: 28, bold: true,
+            color: slide.titleColor || "#D63384",
+            align: "left", fontFace: "Arial Black"
+        });
 
-        slidePpt.addText(slide.title, {  
-            x: titleX, y: titleY, w: titleW,  
-            fontSize: 28, bold: true,  
-            color: slide.titleColor || "#D63384",  
-            align: "left", fontFace: "Arial Black"  
-        });  
+        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
 
-        let contentFont = "Arial"; // Professional font for better readability  
-        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n"); // Prefix each point  
+        if (slide.image) {
+            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333" });
+            slidePpt.addImage({ path: slide.image, x: 7.36, y: 1.5, w: 2.5, h: 2.5 });
+        } else {
+            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "95%", h: 3.5, fontSize: 20, color: "#333" });
+        }
+    });
 
-        if (slide.image) {  
-            // If image exists, content stays on the left, and image moves 5px left  
-            slidePpt.addText(formattedContent, {  
-                x: 0.5, y: 1.5, w: "70%", h: 3.5,  
-                fontSize: 20, color: slide.contentColor || "#333333",  
-                fontFace: contentFont, lineSpacing: 28, align: "left"  
-            });  
+    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
 
-            slidePpt.addImage({  
-                path: slide.image,  
-                x: 7.36, y: 1.5, w: 2.5, h: 2.5  // Image moved 5px left  
-            });  
-        } else {  
-            // If no image, expand content to full width  
-            slidePpt.addText(formattedContent, {  
-                x: 0.5, y: 1.5, w: "95%", h: 3.5,  
-                fontSize: 20, color: slide.contentColor || "#333333",  
-                fontFace: contentFont, lineSpacing: 28, align: "left"  
-            });  
-        }  
-    });  
+    await pptx.writeFile(pptPath);
+    
+    // Wait for the file to be completely written
+    let retries = 0;
+    while (!fs.existsSync(pptPath) && retries < 5) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        retries++;
+    }
 
-    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);  
-    await pptx.writeFile(pptPath);  
-    res.download(pptPath);  
+    res.download(pptPath);
 });
+
+
 
 
 app.post("/solve-math", upload.single("image"), async (req, res) => {
