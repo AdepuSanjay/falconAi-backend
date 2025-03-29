@@ -137,7 +137,7 @@ app.get("/download-ppts/:filename", (req, res) => {
  */
 app.post("/generate-resume", async (req, res) => {
     try {
-        const { name, email, phone, linkedin, github, summary, experience, skills, education, projects, certifications, achievements, languages } = req.body;
+        const { name, email, phone, linkedin, portfolio, summary, experience, skills, education, projects, certifications, achievements, languages } = req.body;
 
         if (!name || !email || !phone || !summary || !experience || !skills || !education) {
             return res.status(400).json({ error: "Missing required fields" });
@@ -151,7 +151,7 @@ Generate a **professional, ATS-optimized resume** with only the given details, w
 - **Email:** ${email}
 - **Phone:** ${phone}
 - **LinkedIn:** ${linkedin || "N/A"}
-- **GitHub:** ${github || "N/A"}
+- **Portfolio:** ${portfolio || "N/A"}
 
 **Professional Summary:**  
 ${summary}
@@ -166,7 +166,8 @@ ${education.map(edu => `- **${edu.degree}**, ${edu.institution} (${edu.year})`).
 **Projects:**  
 ${projects.map(proj => `- **${proj.title}**  
   *Description:* ${proj.description}  
-  *Tech Stack:* ${proj.techStack}`).join("\n")}
+  *Tech Stack:* ${proj.techStack}  
+  *Project Link:* ${proj.link || "N/A"}`).join("\n")}
 
 **Certifications:**  
 ${certifications.length > 0 ? certifications.map(cert => `- ${cert}`).join("\n") : "N/A"}
@@ -182,6 +183,7 @@ ${languages.length > 0 ? languages.join(", ") : "N/A"}
 
 Format this in a clean, professional, ATS-friendly style.
 `;
+
         const response = await axios.post(
             `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
             { contents: [{ parts: [{ text: prompt }] }] }
@@ -199,6 +201,7 @@ Format this in a clean, professional, ATS-friendly style.
         res.status(500).json({ error: "Failed to generate resume" });
     }
 });
+
 
 /**
  * Converts AI-generated resume into a downloadable PDF
