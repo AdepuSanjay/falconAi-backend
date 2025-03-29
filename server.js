@@ -354,14 +354,14 @@ app.post("/update-slides", (req, res) => {
   try {  
     const { topic, slides, useImages } = req.body;  
     const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);  
-  
+
     if (!slides || slides.length === 0) {  
       return res.status(400).json({ error: "No slides to save" });  
     }  
 
     const formattedSlides = slides.map((slide) => ({  
       title: slide.title || "Untitled Slide",  
-      content: slide.content || [],  
+      content: (slide.content || []).filter(text => text.trim() !== ""), // Remove empty bullet points  
       theme: slide.theme || "#FFFFFF",  
       titleColor: slide.titleColor || "#000000",  
       contentColor: slide.contentColor || "#000000",  
