@@ -64,31 +64,31 @@ app.get("/get-slides/:topic", (req, res) => {
 
 
 
-app.post("/update-slides", (req, res) => {  
-  try {  
-    const { topic, slides, useImages } = req.body;  
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);  
+// Update slides
+app.post("/update-slides", (req, res) => {
+  try {
+    const { topic, slides, useImages } = req.body;
+    const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
-    if (!slides || slides.length === 0) {  
-      return res.status(400).json({ error: "No slides to save" });  
-    }  
+    if (!slides || slides.length === 0) {
+      return res.status(400).json({ error: "No slides to save" });
+    }
 
-    const formattedSlides = slides.map((slide) => ({  
-      title: slide.title || "Untitled Slide",  
-      content: (slide.content || []).filter(text => text.trim() !== ""), // Remove empty bullet points  
-      theme: slide.theme || "#FFFFFF",  
-      titleColor: slide.titleColor || "#000000",  
-      contentColor: slide.contentColor || "#000000",  
-      image: useImages ? slide.image || null : null, // Save image only if useImages is true  
-    }));  
+    const formattedSlides = slides.map((slide) => ({
+      title: slide.title || "Untitled Slide",
+      content: (slide.content || []).filter(text => text.trim() !== ""),
+      theme: slide.theme || "#FFFFFF",
+      titleColor: slide.titleColor || "#000000",
+      contentColor: slide.contentColor || "#000000",
+      image: useImages ? slide.image || null : null,
+    }));
 
-    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");  
-
-    res.json({ success: true, message: "Slides updated successfully!" });  
-  } catch (error) {  
-    console.error("Error updating slides:", error.message);  
-    res.status(500).json({ error: "Failed to update slides" });  
-  }  
+    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");
+    res.json({ success: true, message: "Slides updated successfully!" });
+  } catch (error) {
+    console.error("Error updating slides:", error.message);
+    res.status(500).json({ error: "Failed to update slides" });
+  }
 });
 
 
