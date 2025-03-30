@@ -74,43 +74,71 @@ app.post("/generate-ppt", async (req, res) => {
     }
 });
 
+async function downloadImage(imageUrl) {
+    try {
+        const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+        const imageBuffer = Buffer.from(imageResponse.data, "binary");
+
+        const imageName = path.basename(imageUrl);
+        const imagePath = path.join(TEMP_DIR, imageName);
+
+        await fs.writeFile(imagePath, imageBuffer);
+        return imagePath;
+    } catch (error) {
+        console.error("Error downloading image:", error.message);
+        return null;
+    }
+}
+
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
         const topic = req.params.topic.replace(/\s/g, "_");
         const jsonPath = path.join(TEMP_DIR, `${topic}.json`);
 
-        if (!(await fileExists(jsonPath))) {
-            return res.status(404).json({ error: "No slides found for this topic" });
-        }
+        if (!(await fileExists(jsonPath))) {  
+            return res.status(404).json({ error: "No slides found for this topic" });  
+        }  
 
-        const slides = JSON.parse(await fs.readFile(jsonPath, "utf-8"));
-        const pptx = new PptxGenJS();
+        const slides = JSON.parse(await fs.readFile(jsonPath, "utf-8"));  
+        const pptx = new PptxGenJS();  
 
-        for (const slide of slides) {
-            let slidePpt = pptx.addSlide();
-            slidePpt.background = { color: slide.theme || "#dde6edcd" };
+        for (const slide of slides) {  
+            let slidePpt = pptx.addSlide();  
+            slidePpt.background = { color: slide.theme || "#dde6edcd" };  
 
-            slidePpt.addText(slide.title, {
-                x: 0.5, y: 0.5, w: "90%", fontSize: 28, bold: true,
-                color: slide.titleColor || "#D63384", align: "left"
-            });
+            slidePpt.addText(slide.title, {  
+                x: 0.5, y: 0.5, w: "90%", fontSize: 28, bold: true,  
+                color: slide.titleColor || "#D63384", align: "left"  
+            });  
 
-            let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
-            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "90%", fontSize: 20, color: "#333" });
-        }
+            let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");  
 
-        // ✅ Save PPT to /tmp directory
-        const pptPath = path.join(TEMP_DIR, `${topic}.pptx`);
-        await pptx.writeFile({ fileName: pptPath });
+            if (slide.image) {  
+                const imagePath = await downloadImage(slide.image);  
 
-        res.download(pptPath, `${topic}.pptx`, (err) => {
-            if (err) console.error("Download error:", err);
-        });
-    } catch (error) {
-        console.error("Error generating PPT:", error.message);
-        res.status(500).json({ error: "Failed to generate PowerPoint file." });
+                if (imagePath) {
+                    slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333" });  
+                    slidePpt.addImage({ path: imagePath, x: 8, y: 1.5, w: 2, h: 2 });  
+                } else {  
+                    slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "90%", fontSize: 20, color: "#333" });  
+                }  
+            } else {  
+                slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "90%", fontSize: 20, color: "#333" });  
+            }  
+        }  
+
+        const pptPath = path.join(TEMP_DIR, `${topic}.pptx`);  
+        await pptx.writeFile({ fileName: pptPath });  
+
+        res.download(pptPath, `${topic}.pptx`, (err) => {  
+            if (err) console.error("Download error:", err);  
+        });  
+    } catch (error) {  
+        console.error("Error generating PPT:", error.message);  
+        res.status(500).json({ error: "Failed to generate PowerPoint file." });  
     }
 });
+
 
 async function fileExists(filePath) {
     try {
