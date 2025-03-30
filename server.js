@@ -1,169 +1,262 @@
-const express = require("express");
-const cors = require("cors");
-const axios = require("axios");
-const fs = require("fs").promises;
-const path = require("path");
-const PptxGenJS = require("pptxgenjs");
-require("dotenv").config();
+const express = require("express"); const cors = require("cors"); const axios = require("axios"); const fs = require("fs"); const ffmpeg = require("fluent-ffmpeg");
+
+const path=require("path");
+
+const multer = require("multer"); const PDFDocument = require("pdfkit"); const PptxGenJS = require("pptxgenjs"); const { exec } = require("child_process");
+
+require("dotenv").config(); const Tesseract = require("tesseract.js"); const sizeOf = require("image-size");
+
+const mammoth = require("mammoth"); const PPTX2Json = require("pptx2json");
 
 const app = express();
-app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
-app.use(express.json());
 
-// ✅ Use /tmp for temporary file storage
-const TEMP_DIR = "/tmp";  
-const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
+app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] })); app.use(express.json());
+
+// Ensure 'generated_ppts' folder exists if (!fs.existsSync("./generated_ppts")) fs.mkdirSync("./generated_ppts");
+
+const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY; if (!GOOGLE_GEMINI_API_KEY) { console.error("❌ Error: GOOGLE_GEMINI_API_KEY is missing in .env file."); process.exit(1); }
+
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
-// Ensure /tmp exists (Not required in Vercel, but added for safety)
-(async () => {
-    try {
-        await fs.mkdir(TEMP_DIR, { recursive: true });
-    } catch (err) {
-        console.error("Failed to create temporary directory:", err.message);
-    }
-})();
 
-app.get("/get-slides/:topic", async (req, res) => {
-    try {
-        const topic = req.params.topic.replace(/\s/g, "_");
-        const jsonPath = path.join(TEMP_DIR, `${topic}.json`);
 
-        if (!(await fileExists(jsonPath))) {
-            return res.status(404).json({ error: "No slides found for this topic" });
-        }
 
-        const slides = JSON.parse(await fs.readFile(jsonPath, "utf-8"));
-        res.json({ success: true, slides });
-    } catch (error) {
-        console.error("Error fetching slides:", error.message);
-        res.status(500).json({ error: "Failed to fetch slides" });
-    }
-});
 
-app.post("/generate-ppt", async (req, res) => {
-    const { topic, slidesCount } = req.body;
+app.get("/get-slides/:topic", (req, res) => { try { const topic = req.params.topic; const jsonPath = path.join(__dirname, "generated_ppts", ${topic.replace(/\s/g, "_")}.json);
 
-    if (!topic || !slidesCount) {
-        return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
-    }
-
-    const prompt = `Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.`;
-
-    try {
-        const geminiResponse = await axios.post(
-            `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
-            { contents: [{ parts: [{ text: prompt }] }] }
-        );
-
-        const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const formattedSlides = parseGeminiResponse(aiText);
-
-        if (formattedSlides.error) {
-            return res.status(500).json({ error: "Unexpected AI response. Please try again." });
-        }
-
-        // ✅ Save slides to /tmp directory
-        const jsonPath = path.join(TEMP_DIR, `${topic.replace(/\s/g, "_")}.json`);
-        await fs.writeFile(jsonPath, JSON.stringify(formattedSlides.slides, null, 2), "utf-8");
-
-        return res.json({ success: true, slides: formattedSlides.slides });
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        return res.status(500).json({ error: "Failed to generate slides from AI." });
-    }
-});
-
-async function downloadImage(imageUrl) {
-    try {
-        const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
-        const imageBuffer = Buffer.from(imageResponse.data, "binary");
-
-        const imageName = path.basename(imageUrl);
-        const imagePath = path.join(TEMP_DIR, imageName);
-
-        await fs.writeFile(imagePath, imageBuffer);
-        return imagePath;
-    } catch (error) {
-        console.error("Error downloading image:", error.message);
-        return null;
-    }
+if (!fs.existsSync(jsonPath)) {
+return res.status(404).json({ error: "No slides found for this topic" });
 }
 
-app.get("/download-ppt/:topic", async (req, res) => {
-    try {
-        const topic = req.params.topic.replace(/\s/g, "_");
-        const jsonPath = path.join(TEMP_DIR, `${topic}.json`);
+const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+res.json({ success: true, slides });
 
-        if (!(await fileExists(jsonPath))) {  
-            return res.status(404).json({ error: "No slides found for this topic" });  
-        }  
+} catch (error) { console.error("Error fetching slides:", error.message); res.status(500).json({ error: "Failed to fetch slides" }); } });
 
-        const slides = JSON.parse(await fs.readFile(jsonPath, "utf-8"));  
-        const pptx = new PptxGenJS();  
+// 🆕 Translation Endpoint app.post("/translate", async (req, res) => { try { const { text, sourceLanguage, targetLanguage } = req.body; if (!text || !targetLanguage) { return res.status(400).json({ error: "Text and targetLanguage are required" }); }
 
-        for (const slide of slides) {  
-            let slidePpt = pptx.addSlide();  
-            slidePpt.background = { color: slide.theme || "#dde6edcd" };  
+// Constructing the prompt dynamically
+let prompt = Translate the following text to ${targetLanguage}: ${text};
+if (sourceLanguage) {
+prompt = Translate the following text from ${sourceLanguage} to ${targetLanguage}: ${text};
+}
 
-            slidePpt.addText(slide.title, {  
-                x: 0.5, y: 0.5, w: "90%", fontSize: 28, bold: true,  
-                color: slide.titleColor || "#D63384", align: "left"  
-            });  
+const response = await axios.post(
+https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY},
+{
+contents: [{ parts: [{ text: prompt }] }]
+},
+{ headers: { "Content-Type": "application/json" } }
+);
 
-            let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");  
+const translatedText = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Translation failed";
+res.json({ success: true, translatedText });
 
-            if (slide.image) {  
-                const imagePath = await downloadImage(slide.image);  
+} catch (error) { console.error("Translation Error:", error.message); res.status(500).json({ error: "Translation failed" }); } });
 
-                if (imagePath) {
-                    slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333" });  
-                    slidePpt.addImage({ path: imagePath, x: 8, y: 1.5, w: 2, h: 2 });  
-                } else {  
-                    slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "90%", fontSize: 20, color: "#333" });  
-                }  
-            } else {  
-                slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "90%", fontSize: 20, color: "#333" });  
-            }  
-        }  
 
-        const pptPath = path.join(TEMP_DIR, `${topic}.pptx`);  
-        await pptx.writeFile({ fileName: pptPath });  
 
-        res.download(pptPath, `${topic}.pptx`, (err) => {  
-            if (err) console.error("Download error:", err);  
-        });  
-    } catch (error) {  
-        console.error("Error generating PPT:", error.message);  
-        res.status(500).json({ error: "Failed to generate PowerPoint file." });  
-    }
+app.post("/update-slides", (req, res) => {  
+  try {  
+    const { topic, slides, useImages } = req.body;  
+    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);  
+
+    if (!slides || slides.length === 0) {  
+      return res.status(400).json({ error: "No slides to save" });  
+    }  
+
+    const formattedSlides = slides.map((slide) => ({  
+      title: slide.title || "Untitled Slide",  
+      content: (slide.content || []).filter(text => text.trim() !== ""), // Remove empty bullet points  
+      theme: slide.theme || "#FFFFFF",  
+      titleColor: slide.titleColor || "#000000",  
+      contentColor: slide.contentColor || "#000000",  
+      image: useImages ? slide.image || null : null, // Save image only if useImages is true  
+    }));  
+
+    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");  
+
+    res.json({ success: true, message: "Slides updated successfully!" });  
+  } catch (error) {  
+    console.error("Error updating slides:", error.message);  
+    res.status(500).json({ error: "Failed to update slides" });  
+  }  
 });
 
 
-async function fileExists(filePath) {
-    try {
-        await fs.access(filePath);
-        return true;
-    } catch {
-        return false;
-    }
+
+
+
+// ✅ AI-Powered Search using Google Gemini app.post("/ai-search", async (req, res) => { try { const { query } = req.body; if (!query) return res.status(400).json({ error: "Query is required" });
+
+const response = await axios.post(
+GEMINI_API_URL,
+{ contents: [{ parts: [{ text: query }] }] },
+{ headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } }
+);
+
+const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";  
+res.json({ query, response: aiResponse });
+
+} catch (error) {
+console.error("AI Search Error:", error.message);
+res.status(500).json({ error: "Failed to fetch search results" });
 }
 
-function parseGeminiResponse(responseText) {
-    const slides = [];
-    const slideSections = responseText.split("Slide ");
+});
 
-    slideSections.forEach((section) => {
-        const match = section.match(/^(\d+):\s*(.+)/);
-        if (match) {
-            const title = match[2].trim();
-            const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
-            slides.push({ title, content: contentLines });
-        }
-    });
 
-    return slides.length ? { slides } : { error: "Invalid AI response format" };
+// ✅ Check Slides Before Downloading
+
+
+ app.get("/check-slides", (req, res) => { const topic = req.query.topic; const filePath = ./generated_ppts/${topic.replace(/\s/g, "_")}.json;
+
+if (!fs.existsSync(filePath)) return res.status(404).json({ error: "No slides found for this topic" });
+
+const slides = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+res.json({ topic, slides });
+
+});
+
+
+function parseGeminiResponse(responseText) { const slides = []; const slideSections = responseText.split("Slide ");
+
+slideSections.forEach((section) => {
+const match = section.match(/^(\d+):\s*(.+)/);
+if (match) {
+const title = match[2].trim();
+const contentLines = section
+.split("\n")
+.slice(1)
+.map(line => line.trim())
+.filter(line => line);
+
+// Escape backticks in code blocks to prevent syntax errors  
+    const formattedContent = contentLines.map(line =>   
+        line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line  
+    );  
+
+    slides.push({ title, content: formattedContent });  
 }
+
+});
+
+return slides.length ? { slides } : { error: "Invalid AI response format" };
+
+}
+
+// API Route to Generate PPT from Gemini AI
+
+app.post("/generate-ppt", async (req, res) => { const { topic, slidesCount } = req.body;
+
+if (!topic || !slidesCount) {
+return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
+}
+
+// Detect if the topic is related to coding
+const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang =>
+topic.toLowerCase().includes(lang.toLowerCase())
+);
+
+let prompt;
+if (isCodingTopic) {
+prompt = `
+
+Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
+Slide Structure:
+
+1. Slide Title: Format as "Slide X: Title".
+
+
+2. Explanation: Provide clear, structured bullet points.
+
+
+3. Code Snippets: Format code properly using "${topic.toLowerCase()}" syntax.
+
+
+
+Example:
+
+
+---
+
+Slide 1: Introduction to ${topic}
+
+${topic} is a widely used programming language.
+
+It is used in web development, automation, and AI.
+
+Slide 2: Hello World Example
+
+Explanation:
+
+A simple program to print "Hello, World!" in ${topic}.
+
+${topic.toLowerCase()} public class Main { public static void main(String[] args) { System.out.println("Hello, World!"); } } 
+
+Slide 3: Variables and Data Types
+
+Explanation:
+
+${topic} supports multiple data types such as int, double, and boolean.
+
+Example Code: ${topic.toLowerCase()} int age = 25; double price = 19.99; boolean isAvailable = true; 
+
+Ensure proper formatting, clarity, and well-structured slides. ; } else { prompt =  Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
+Slide Structure:
+
+1. Slide Title: Format as "Slide X: Title".
+
+
+2. Content: Bullet points explaining key concepts in simple terms.
+
+
+
+Example:
+
+
+---
+
+Slide 1: Introduction to ${topic}
+
+Definition of ${topic}.
+
+Importance and real-world applications.
+
+Slide 2: Key Features
+
+Feature 1: Explanation.
+
+Feature 2: Explanation.
+
+Ensure the response follows this structured format. `; }
+
+try {
+const geminiResponse = await axios.post(${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}, {
+contents: [{ parts: [{ text: prompt }] }]
+});
+
+const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";  
+
+const formattedSlides = parseGeminiResponse(aiText);  
+
+if (formattedSlides.error) {  
+    return res.status(500).json({ error: "Unexpected AI response. Please try again." });  
+}  
+
+return res.json(formattedSlides);
+
+} catch (error) {
+console.error("Error calling Gemini API:", error);
+return res.status(500).json({ error: "Failed to generate slides from AI." });
+}
+
+});
+
+
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
