@@ -8,10 +8,7 @@ const PDFDocument = require("pdfkit");
 const PptxGenJS = require("pptxgenjs");
 const { exec } = require("child_process");
 require("dotenv").config();
-const Tesseract = require("tesseract.js");
-const sizeOf = require("image-size");
-const mammoth = require("mammoth");
-const PPTX2Json = require("pptx2json");
+
 
 const app = express();
 app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
