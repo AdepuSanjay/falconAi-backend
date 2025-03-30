@@ -261,8 +261,8 @@ Ensure the response **follows this structured format**.
 
 // Generate and Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {
-    const topic = req.params.topic;
-    const jsonPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.json`);
+       const topic = req.params.topic;
+        const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
     if (!fs.existsSync(jsonPath)) {
         return res.status(404).json({ error: "No slides found for this topic" });
