@@ -285,10 +285,10 @@ app.get("/download-ppt/:topic", async (req, res) => {
         let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
 
         if (slide.image) {
-            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333" ,fontFace: "Playfair Display" });
+            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333" ,fontFamily: "Playfair Display"});
             slidePpt.addImage({ path: slide.image, x: 7.36, y: 1.5, w: 2.5, h: 2.5 });
         } else {
-            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "95%", h: 3.5, fontSize: 20, color: "#333" ,fontFace: "Playfair Display"
+            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "95%", h: 3.5, fontSize: 20, color: "#333" ,fontFamily: "Playfair Display"
  });
         }
     });
@@ -306,7 +306,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
     res.download(pptPath);
 });
-
 
 
 
