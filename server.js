@@ -66,51 +66,112 @@ app.post("/update-slides", async (req, res) => {
     }
 });
 
-app.post("/generate-ppt", async (req, res) => {
-    try {
-        const { topic, slidesCount } = req.body;
-        if (!topic || !slidesCount) {
-            return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
+
+function parseGeminiResponse(responseText) {
+    const slides = [];
+    const slideSections = responseText.split("Slide ");
+
+    slideSections.forEach((section) => {
+        const match = section.match(/^(\d+):\s*(.+)/);
+        if (match) {
+            const title = match[2].trim();
+            const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
+            const formattedContent = contentLines.map(line => 
+                line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line
+            );
+
+            slides.push({ title, content: formattedContent });
         }
+    });
 
-        const prompt = `Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-        
-        Slide Structure:
-        1. Slide Title: Format as "Slide X: Title".
-        2. Content: Bullet points explaining key concepts in simple terms.
-        
-        Example:
-        
-        Slide 1: Introduction to ${topic}
-        - Definition of ${topic}.
-        - Importance and real-world applications.
+    return slides.length ? { slides } : { error: "Invalid AI response format" };
+}
 
-        Slide 2: Key Features
-        - Feature 1: Explanation.
-        - Feature 2: Explanation.
-        `;
+app.post("/generate-ppt", async (req, res) => {
+    const { topic, slidesCount } = req.body;
 
+    if (!topic || !slidesCount) {
+        return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
+    }
+
+    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang => 
+        topic.toLowerCase().includes(lang.toLowerCase())
+    );
+
+    let prompt;
+    if (isCodingTopic) {
+        prompt = `
+Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
+Slide Structure:
+
+1. Slide Title: Format as "Slide X: Title".
+2. Explanation: Provide clear, structured bullet points.
+3. Code Snippets: Format code properly using "${topic.toLowerCase()}" syntax.
+
+Example:
+
+Slide 1: Introduction to ${topic}
+
+- ${topic} is a widely used programming language.
+- It is used in web development, automation, and AI.
+
+Slide 2: Hello World Example
+
+- A simple program to print "Hello, World!" in ${topic}.
+
+\`\`\`${topic.toLowerCase()}
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+\`\`\`
+`;
+    } else {
+        prompt = `
+Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
+Slide Structure:
+
+1. Slide Title: Format as "Slide X: Title".
+2. Content: Bullet points explaining key concepts in simple terms.
+
+Example:
+
+Slide 1: Introduction to ${topic}
+
+- Definition of ${topic}.
+- Importance and real-world applications.
+
+Slide 2: Key Features
+
+- Feature 1: Explanation.
+- Feature 2: Explanation.
+`;
+    }
+
+    try {
         const geminiResponse = await axios.post(
             `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
             { contents: [{ parts: [{ text: prompt }] }] }
         );
 
-        const aiText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const formattedSlides = parseGeminiResponse(aiText);
 
         if (formattedSlides.error) {
             return res.status(500).json({ error: "Unexpected AI response. Please try again." });
         }
 
-        const jsonPath = path.join(TEMP_DIR, `${topic.replace(/\s/g, "_")}.json`);
-        await fs.writeFile(jsonPath, JSON.stringify(formattedSlides.slides, null, 2), "utf-8");
-
-        res.json(formattedSlides);
+        return res.json(formattedSlides);
     } catch (error) {
-        console.error("Error generating slides:", error.message);
-        res.status(500).json({ error: "Failed to generate slides from AI." });
+        console.error("Error calling Gemini API:", error);
+        return res.status(500).json({ error: "Failed to generate slides from AI." });
     }
 });
+
+
 
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
