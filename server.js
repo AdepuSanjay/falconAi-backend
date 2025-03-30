@@ -182,6 +182,9 @@ app.get("/check-slides", (req, res) => {
     res.json({ topic, slides });
 });
 
+
+
+
 // ✅ Generate and download PPT (fixed storage location)
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
@@ -206,7 +209,8 @@ app.get("/download-ppt/:topic", async (req, res) => {
                 align: "left", fontFace: "Arial Black"
             });
 
-            let formattedContent = slide.content.map(point => 🔹 ${point}).join("\n");
+            // ✅ Fixed this line
+            let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
 
             if (slide.image) {
                 const imagePath = await downloadImageIfNeeded(slide.image);
@@ -223,7 +227,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
         await pptx.writeFile({ fileName: pptPath });
 
         res.download(pptPath, `${topic}.pptx`, (err) => {
-
             if (err) console.error("Download error:", err);
         });
     } catch (error) {
@@ -231,6 +234,10 @@ app.get("/download-ppt/:topic", async (req, res) => {
         res.status(500).json({ error: "Failed to generate PowerPoint file." });
     }
 });
+
+
+
+
 
 // ✅ AI-Powered Search using Google Gemini
 app.post("/ai-search", async (req, res) => {
