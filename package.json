@@ -2,7 +2,7 @@
   "name": "falconai-backend",
   "version": "1.0.0",
   "description": "Backend for FalconAI",
-  "main": "server.js",
+  "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
