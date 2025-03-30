@@ -28,6 +28,7 @@ app.get("/get-slides/:topic", async (req, res) => {
     try {
         const topic = req.params.topic.replace(/\s/g, "_");
         const jsonPath = path.join(TEMP_DIR, `${topic}.json`);
+console.log("Checking file:", jsonPath);
 
         if (!(await fileExists(jsonPath))) {
             return res.status(404).json({ error: "No slides found for this topic" });
@@ -160,11 +161,15 @@ Slide 2: Key Features
         const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const formattedSlides = parseGeminiResponse(aiText);
 
-        if (formattedSlides.error) {
-            return res.status(500).json({ error: "Unexpected AI response. Please try again." });
-        }
+if (formattedSlides.error) {
+    return res.status(500).json({ error: "Unexpected AI response. Please try again." });
+}
 
-        return res.json(formattedSlides);
+// Save generated slides to JSON file
+const jsonPath = path.join(TEMP_DIR, `${topic.replace(/\s/g, "_")}.json`);
+await fs.writeFile(jsonPath, JSON.stringify(formattedSlides.slides, null, 2), "utf-8");
+
+return res.json({ success: true, slides: formattedSlides.slides });
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         return res.status(500).json({ error: "Failed to generate slides from AI." });
