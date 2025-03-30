@@ -182,6 +182,79 @@ app.get("/check-slides", (req, res) => {
     res.json({ topic, slides });
 });
 
+// ✅ Generate and download PPT (fixed storage location)
+app.get("/download-ppt/:topic", async (req, res) => {
+    try {
+        const topic = req.params.topic;
+        const jsonPath = path.join(TEMP_DIR, ${topic.replace(/\s/g, "_")}.json);
+
+        if (!fs.existsSync(jsonPath)) {
+            return res.status(404).json({ error: "No slides found for this topic" });
+        }
+
+        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+        let pptx = new PptxGenJS();
+
+        for (const slide of slides) {
+            let slidePpt = pptx.addSlide();
+            slidePpt.background = { color: slide.theme || "#dde6edcd" };
+
+            slidePpt.addText(slide.title, {
+                x: 0.5, y: 0.5, w: "90%",
+                fontSize: 28, bold: true,
+                color: slide.titleColor || "#D63384",
+                align: "left", fontFace: "Arial Black"
+            });
+
+            let formattedContent = slide.content.map(point => 🔹 ${point}).join("\n");
+
+            if (slide.image) {
+                const imagePath = await downloadImageIfNeeded(slide.image);
+                slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333", fontFamily: "Playfair Display" });
+                slidePpt.addImage({ path: imagePath, x: 8, y: 1.5, w: 2, h: 2 });
+            } else {
+                slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "90%", fontSize: 20, color: "#333", fontFamily: "Playfair Display" });
+            }
+        }
+
+        // ✅ Save PPT in /tmp/
+        const pptPath = path.join("/tmp", ${topic.replace(/\s/g, "_")}.pptx);
+        await pptx.writeFile({ fileName: pptPath });
+
+        res.download(pptPath, ${topic}.pptx, (err) => {
+            if (err) console.error("Download error:", err);
+        });
+    } catch (error) {
+        console.error("Error generating PPT:", error.message);
+        res.status(500).json({ error: "Failed to generate PowerPoint file." });
+    }
+});
+
+// ✅ AI-Powered Search using Google Gemini
+app.post("/ai-search", async (req, res) => {
+    try {
+        const { query } = req.body;
+        if (!query) return res.status(400).json({ error: "Query is required" });
+
+        const response = await axios.post(
+            GEMINI_API_URL,
+            { contents: [{ parts: [{ text: query }] }] },
+            { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY } }
+        );
+
+        const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";
+        res.json({ query, response: aiResponse });
+
+    } catch (error) {
+        console.error("AI Search Error:", error.message);
+        res.status(500).json({ error: "Failed to fetch search results" });
+    }
+});
+
+
+
+
+
 app.listen(3000, () => {
     console.log("Server running on port 3000");
 });
