@@ -261,53 +261,77 @@ Ensure the response **follows this structured format**.
 
 // Generate and Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {
-       const topic = req.params.topic;
+    try {
+        const topic = req.params.topic;
         const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
-    if (!fs.existsSync(jsonPath)) {
-        return res.status(404).json({ error: "No slides found for this topic" });
-    }
-
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-    let pptx = new PptxGenJS();
-
-    slides.forEach((slide) => {
-        let slidePpt = pptx.addSlide();
-        slidePpt.background = { color: slide.theme || "#dde6edcd" };
-
-        slidePpt.addText(slide.title, {
-            x: 0.5, y: 0.5, w: "90%",
-            fontSize: 28, bold: true,
-            color: slide.titleColor || "#D63384",
-            align: "left", fontFace: "Arial Black"
-        });
-
-        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
-
-        if (slide.image) {
-            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333" ,fontFamily: "Playfair Display"});
-            slidePpt.addImage({ path: slide.image, x: 7.36, y: 1.5, w: 2.5, h: 2.5 });
-        } else {
-            slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "95%", h: 3.5, fontSize: 20, color: "#333" ,fontFamily: "Playfair Display"
- });
+        if (!fs.existsSync(jsonPath)) {
+            return res.status(404).json({ error: "No slides found for this topic" });
         }
-    });
 
-    const pptPath = path.join(__dirname, "generated_ppts", `${topic.replace(/\s/g, "_")}.pptx`);
+        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+        let pptx = new PptxGenJS();
 
-    await pptx.writeFile(pptPath);
-    
-    // Wait for the file to be completely written
-    let retries = 0;
-    while (!fs.existsSync(pptPath) && retries < 5) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        retries++;
+        for (const slide of slides) {
+            let slidePpt = pptx.addSlide();
+            slidePpt.background = { color: slide.theme || "#dde6edcd" };
+
+            slidePpt.addText(slide.title, {
+                x: 0.5, y: 0.5, w: "90%",
+                fontSize: 28, bold: true,
+                color: slide.titleColor || "#D63384",
+                align: "left", fontFace: "Arial Black"
+            });
+
+            let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
+
+            if (slide.image) {
+                const imagePath = await downloadImageIfNeeded(slide.image);
+                slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "70%", h: 3.5, fontSize: 20, color: "#333", fontFamily: "Playfair Display" });
+                slidePpt.addImage({ path: imagePath, x: 7.36, y: 1.5, w: 2.5, h: 2.5 });
+            } else {
+                slidePpt.addText(formattedContent, { x: 0.5, y: 1.5, w: "95%", h: 3.5, fontSize: 20, color: "#333", fontFamily: "Playfair Display" });
+            }
+        }
+
+        const pptPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.pptx`);
+        await pptx.writeFile(pptPath);
+
+        // Ensure the file exists before attempting to download
+        let retries = 0;
+        while (!fs.existsSync(pptPath) && retries < 5) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            retries++;
+        }
+
+        res.download(pptPath);
+    } catch (error) {
+        console.error("Error generating PPT:", error);
+        res.status(500).json({ error: "Failed to generate PPT" });
     }
-
-    res.download(pptPath);
 });
 
+// Function to download image if it's a URL
+async function downloadImageIfNeeded(imageUrl) {
+    if (imageUrl.startsWith("http")) {
+        const imagePath = path.join("/tmp", `image_${Date.now()}.jpg`);
+        const writer = fs.createWriteStream(imagePath);
 
+        const response = await axios({
+            url: imageUrl,
+            method: "GET",
+            responseType: "stream",
+        });
+
+        response.data.pipe(writer);
+
+        return new Promise((resolve, reject) => {
+            writer.on("finish", () => resolve(imagePath));
+            writer.on("error", reject);
+        });
+    }
+    return imageUrl; // Return the local path if not a URL
+}
 
 
 
