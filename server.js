@@ -186,7 +186,7 @@ app.get("/check-slides", (req, res) => {
 app.get("/download-ppt/:topic", async (req, res) => {
     try {
         const topic = req.params.topic;
-        const jsonPath = path.join(TEMP_DIR, ${topic.replace(/\s/g, "_")}.json);
+        const jsonPath = path.join(TEMP_DIR, `${topic.replace(/\s/g, "_")}.json`);
 
         if (!fs.existsSync(jsonPath)) {
             return res.status(404).json({ error: "No slides found for this topic" });
@@ -218,10 +218,12 @@ app.get("/download-ppt/:topic", async (req, res) => {
         }
 
         // ✅ Save PPT in /tmp/
-        const pptPath = path.join("/tmp", ${topic.replace(/\s/g, "_")}.pptx);
+        const pptPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.pptx`);
+
         await pptx.writeFile({ fileName: pptPath });
 
-        res.download(pptPath, ${topic}.pptx, (err) => {
+        res.download(pptPath, `${topic}.pptx`, (err) => {
+
             if (err) console.error("Download error:", err);
         });
     } catch (error) {
