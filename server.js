@@ -182,11 +182,55 @@ app.post("/generate-ppt", async (req, res) => {
         return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
     }
 
-    const prompt = `
-Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+    const prompt = 
+`
+Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
 Slide Structure:
+
 1. Slide Title: Format as "Slide X: Title".
-2. Content: Bullet points explaining key concepts.
+2. Explanation: Provide clear, structured bullet points.
+3. Code Snippets: Format code properly using "${topic.toLowerCase()}" syntax.
+
+Example:
+
+Slide 1: Introduction to ${topic}
+
+- ${topic} is a widely used programming language.
+- It is used in web development, automation, and AI.
+
+Slide 2: Hello World Example
+
+- A simple program to print "Hello, World!" in ${topic}.
+
+\`\`\`${topic.toLowerCase()}
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+\`\`\`
+`;
+    } else {
+        prompt = `
+Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
+Slide Structure:
+
+1. Slide Title: Format as "Slide X: Title".
+2. Content: Bullet points explaining key concepts in simple terms.
+
+Example:
+
+Slide 1: Introduction to ${topic}
+
+- Definition of ${topic}.
+- Importance and real-world applications.
+
+Slide 2: Key Features
+
+- Feature 1: Explanation.
+- Feature 2: Explanation.
 `;
 
     try {
