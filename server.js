@@ -154,6 +154,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
 // Parse AI response
 
+
 function parseGeminiResponse(responseText) {
     const slides = [];
     const slideSections = responseText.split("Slide ");
@@ -163,7 +164,7 @@ function parseGeminiResponse(responseText) {
         if (match) {
             const title = match[2].trim();
             const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
-            const formattedContent = contentLines.map(line => 
+            const formattedContent = contentLines.map(line =>
                 line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line
             );
 
@@ -182,8 +183,13 @@ app.post("/generate-ppt", async (req, res) => {
         return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
     }
 
-    const prompt = 
-`
+    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang =>
+        topic.toLowerCase().includes(lang.toLowerCase())
+    );
+
+    let prompt;
+    if (isCodingTopic) {
+        prompt = `
 Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
 
 Slide Structure:
@@ -232,6 +238,7 @@ Slide 2: Key Features
 - Feature 1: Explanation.
 - Feature 2: Explanation.
 `;
+    }
 
     try {
         const geminiResponse = await axios.post(
@@ -247,11 +254,15 @@ Slide 2: Key Features
         }
 
         return res.json(formattedSlides);
+
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         return res.status(500).json({ error: "Failed to generate slides from AI." });
     }
 });
+
+
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
