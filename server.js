@@ -262,6 +262,55 @@ Slide 2: Key Features
 });
 
 
+// ✅ AI-Powered Search using Google Gemini with Context Handling
+app.post("/ai-search", async (req, res) => {
+    try {
+        const { query, sessionId } = req.body;
+        if (!query) return res.status(400).json({ error: "Query is required" });
+
+        // Generate session ID if not provided
+        const userSessionId = sessionId || uuidv4();
+        const sessionFilePath = path.join("/tmp", `${userSessionId}.json`);
+
+        let chatHistory = [];
+
+        // Load previous conversations if session exists
+        if (fs.existsSync(sessionFilePath)) {
+            chatHistory = JSON.parse(fs.readFileSync(sessionFilePath, "utf-8"));
+        }
+
+        // Format previous conversation for AI
+        const historyText = chatHistory
+            .map((entry) => `User: ${entry.query}\nAI: ${entry.response}`)
+            .join("\n");
+
+        const prompt = historyText
+            ? `Previous conversation:\n${historyText}\n\nUser: ${query}\nAI:`
+            : query;
+
+        // Send request to Gemini API
+        const response = await axios.post(
+            `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
+            { contents: [{ parts: [{ text: prompt }] }] },
+            { headers: { "Content-Type": "application/json" } }
+        );
+
+        const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";
+
+        // Save current query & response in session history
+        chatHistory.push({ query, response: aiResponse });
+
+        // Store updated session history
+        fs.writeFileSync(sessionFilePath, JSON.stringify(chatHistory, null, 2), "utf-8");
+
+        res.json({ sessionId: userSessionId, query, response: aiResponse });
+
+    } catch (error) {
+        console.error("AI Search Error:", error.message);
+        res.status(500).json({ error: "Failed to fetch search results" });
+    }
+});
+
 
 
 const PORT = process.env.PORT || 3000;
