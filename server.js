@@ -155,23 +155,23 @@ app.get("/download-ppt/:topic", async (req, res) => {
 // Parse AI response
 function parseGeminiResponse(responseText) {
     const slides = [];
-    const slideSections = responseText.split("Slide ");
+    const slideSections = responseText.split(/\nSlide\s+\d+:\s+/); // More robust split
 
-    slideSections.forEach((section) => {
-        const match = section.match(/^(\d+):\s*(.+)/);
-        if (match) {
-            const title = match[2].trim();
-            const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
-            const formattedContent = contentLines.map(line =>
-                line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line
-            );
+    slideSections.forEach((section, index) => {
+        if (index === 0) return; // Ignore pre-slide text
 
-            slides.push({ title, content: formattedContent });
-        }
+        const lines = section.trim().split("\n");
+        const title = lines.shift()?.trim().replace(/\*\*$/, ""); // Remove extra "**" at the end
+        const formattedContent = lines
+            .map(line => line.trim())
+            .filter(line => line && !line.startsWith("Slide "));
+
+        slides.push({ title, content: formattedContent });
     });
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
+
 
 // Generate PPT using AI
 app.post("/generate-ppt", async (req, res) => {
