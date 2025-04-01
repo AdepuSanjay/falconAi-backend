@@ -1,13 +1,12 @@
 const express = require("express");
 const cors = require("cors");
-const http = require('http');
-const socketIO = require('socket.io');
-const { Client } = require('node-ssdp');
+
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const PptxGenJS = require("pptxgenjs");
 require("dotenv").config();
+
 const { Client } = require('node-ssdp');
 const WebSocket = require('ws');
 const http = require('http');
