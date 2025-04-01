@@ -16,6 +16,125 @@ if (!GOOGLE_GEMINI_API_KEY) {
     process.exit(1);
 }
 
+
+
+
+const server = http.createServer(app);
+const io = socketIO(server);
+
+// Initialize SSDP client to discover UPnP devices on the network
+const client = new Client();
+
+// Array to hold discovered Android TV devices
+let devices = [];
+
+// Listen for device responses
+client.on('response', (headers, statusCode, rinfo) => {
+  console.log('Discovered device:', rinfo.address, headers);
+
+  // Filter for Android TVs (You can refine this based on device types, e.g., 'MediaRenderer')
+  if (headers['server'] && headers['server'].includes('Android TV')) {
+    // Only store Android TVs (you can refine the filter based on your network)
+    devices.push({
+      name: headers['st'], // Device name
+      ip: rinfo.address,    // Device IP
+      port: rinfo.port,     // Device port
+    });
+
+    // Emit discovered devices to clients
+    io.emit('discoverTV', { name: headers['st'], ip: rinfo.address });
+  }
+});
+
+// Start the SSDP client to search for devices
+client.search('ssdp:all'); // You can refine this to search for specific device types (e.g., 'urn:schemas-upnp-org:device:MediaRenderer:1')
+
+// Serve a basic route to indicate the server is running
+app.get('/', (req, res) => {
+  res.send('UPnP Discovery Server Running');
+});
+
+// WebSocket events to handle client connections
+io.on('connection', (socket) => {
+  console.log('New client connected');
+
+  // Listen for a request to connect to a specific TV device
+  socket.on('connectToTV', (deviceIp) => {
+    console.log(`Client requested to connect to TV with IP: ${deviceIp}`);
+    
+    // Example: If we have the device IP, attempt a WebSocket connection or send commands
+    const tvSocket = new WebSocket(`ws://${deviceIp}:8080`);
+
+    tvSocket.onopen = () => {
+      console.log(`Connected to Android TV at ${deviceIp}`);
+      
+      // You can now send control commands to the Android TV over WebSocket
+      tvSocket.send('up'); // Example: Send an 'up' command to the TV
+    };
+
+    tvSocket.onmessage = (message) => {
+      console.log(`Received message from Android TV: ${message.data}`);
+    };
+
+    tvSocket.onerror = (error) => {
+      console.error(`Error connecting to Android TV: ${error}`);
+    };
+
+    tvSocket.onclose = () => {
+      console.log('Connection to Android TV closed');
+    };
+  });
+
+  // Listen for control commands (up, down, left, right)
+  socket.on('controlCommand', (command) => {
+    console.log(`Received control command: ${command}`);
+
+    // If there are discovered TVs, send commands to one of them (e.g., the first discovered TV)
+    if (devices.length > 0) {
+      const deviceIp = devices[0].ip; // Get the IP of the first discovered device
+      const tvSocket = new WebSocket(`ws://${deviceIp}:8080`);
+
+      tvSocket.onopen = () => {
+        tvSocket.send(command);
+        console.log(`Sent command: ${command} to Android TV at ${deviceIp}`);
+      };
+
+      tvSocket.onmessage = (message) => {
+        console.log(`Received message from Android TV: ${message.data}`);
+      };
+
+      tvSocket.onerror = (error) => {
+        console.error(`Error sending command to Android TV: ${error}`);
+      };
+
+      tvSocket.onclose = () => {
+        console.log('Connection to Android TV closed');
+      };
+    } else {
+      console.log('No devices available to send commands to.');
+    }
+  });
+
+  // Disconnect event
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
 // Fetch slides
