@@ -7,10 +7,8 @@ const path = require("path");
 const PptxGenJS = require("pptxgenjs");
 require("dotenv").config();
 
-const { Client } = require('node-ssdp');
-const WebSocket = require('ws');
-const http = require('http');
-const socketIO = require('socket.io');
+const dgram = require("dgram");
+const adb = require("adbkit");
 
 
 const app = express();
@@ -26,114 +24,63 @@ if (!GOOGLE_GEMINI_API_KEY) {
 
 
 
-// Create an HTTP server and set up Socket.IO
-const server = http.createServer(app);
-const io = socketIO(server);
+const client = adb.createClient();
 
-// SSDP client for discovering devices
-const client = new Client();
-let devices = [];
+let discoveredDevices = [];
 
-// Function to discover Android TV devices on the network
-client.on('response', (headers, statusCode, rinfo) => {
-  if (headers['server'] && headers['server'].includes('Android TV')) {
-    // Adding device to list of discovered Android TVs
-    const device = { name: headers['st'], ip: rinfo.address };
-    devices.push(device);
-    io.emit('discoverTV', device); // Emit event to frontend
-  }
-});
+// ** Discover TVs using SDMP **
+const discoverTVs = () => {
+    const socket = dgram.createSocket("udp4");
+    const message = Buffer.from("DISCOVER");
 
-// Start searching for devices on the network (every 10 seconds)
-client.search('ssdp:all');
-setInterval(() => {
-  devices = []; // Clear previous devices list
-  client.search('ssdp:all'); // Re-search for devices
-}, 10000);
+    socket.on("message", (msg, rinfo) => {
+        const deviceInfo = { ip: rinfo.address, name: msg.toString() };
+        if (!discoveredDevices.find(d => d.ip === deviceInfo.ip)) {
+            discoveredDevices.push(deviceInfo);
+            console.log("Found TV:", deviceInfo);
+        }
+    });
 
-// WebSocket connection handler
-let tvSockets = {}; // Store WebSocket connections for each Android TV IP
+    socket.bind(() => {
+        socket.setBroadcast(true);
+        socket.send(message, 0, message.length, 1900, "255.255.255.255");
+    });
 
-// When a frontend client connects
-io.on('connection', (socket) => {
-  console.log('Frontend connected');
+    setTimeout(() => socket.close(), 5000);
+};
 
-  // Emit discovered devices to the frontend
-  socket.emit('discoverTVList', devices);
-
-  // When frontend selects an Android TV device to connect to
-  socket.on('connectToTV', (deviceIp) => {
-    if (tvSockets[deviceIp]) {
-      console.log(`Already connected to Android TV at ${deviceIp}`);
-      socket.emit('connectedToTV', deviceIp);
-    } else {
-      // Create a WebSocket connection to the Android TV (assuming port 8080 for WebSocket)
-      const tvSocket = new WebSocket(`ws://${deviceIp}:8080`);
-      
-      tvSocket.onopen = () => {
-        console.log(`Connected to Android TV at ${deviceIp}`);
-        tvSockets[deviceIp] = tvSocket; // Store the connection
-        socket.emit('connectedToTV', deviceIp); // Notify frontend
-      };
-
-      tvSocket.onerror = (error) => {
-        console.error(`Error connecting to Android TV at ${deviceIp}: ${error}`);
-        socket.emit('errorConnecting', deviceIp);
-      };
-
-      tvSocket.onclose = () => {
-        console.log(`Connection to Android TV at ${deviceIp} closed`);
-        delete tvSockets[deviceIp]; // Clean up on close
-      };
-
-      tvSocket.onmessage = (message) => {
-        console.log(`Received from Android TV at ${deviceIp}: ${message.data}`);
-      };
+// ** Send Key Events via ADB **
+const sendKeyEvent = async (tvIp, keycode) => {
+    try {
+        await client.connect(tvIp, 5555);
+        await client.shell(tvIp, `input keyevent ${keycode}`);
+    } catch (error) {
+        console.error("Error sending key event:", error);
     }
-  });
+};
 
-  // Handle control commands from frontend (e.g., 'up', 'down', 'play')
-  socket.on('controlCommand', (deviceIp, command) => {
-    if (tvSockets[deviceIp]) {
-      const tvSocket = tvSockets[deviceIp];
-      if (tvSocket.readyState === WebSocket.OPEN) {
-        tvSocket.send(command);
-        console.log(`Sent command: ${command} to Android TV at ${deviceIp}`);
-      } else {
-        console.log(`Connection to Android TV at ${deviceIp} is not open`);
-      }
+// ** API Endpoint: Discover TVs **
+app.get("/discoverTVs", (req, res) => {
+    discoveredDevices = [];
+    discoverTVs();
+    setTimeout(() => res.json({ devices: discoveredDevices }), 6000);
+});
+
+// ** API Endpoint: Control TV (D-pad Navigation) **
+app.post("/controlTV", async (req, res) => {
+    const { tvIp, command } = req.body;
+    const keyMappings = {
+        "up": "19", "down": "20", "left": "21", "right": "22",
+        "ok": "23", "back": "4", "home": "3"
+    };
+
+    if (keyMappings[command]) {
+        await sendKeyEvent(tvIp, keyMappings[command]);
+        res.json({ success: true, command: command });
     } else {
-      console.log(`No connection to Android TV at ${deviceIp}`);
+        res.status(400).json({ error: "Invalid command" });
     }
-  });
 });
-
-// HTTP Endpoints to test via API Client (Postman/Insomnia)
-
-// Endpoint to get the list of discovered Android TVs
-app.get('/discoverTVs', (req, res) => {
-  res.json({ devices });
-});
-
-// Endpoint to simulate control command (for testing purposes)
-app.post('/controlCommand', (req, res) => {
-  const { deviceIp, command } = req.body;
-  if (tvSockets[deviceIp]) {
-    const tvSocket = tvSockets[deviceIp];
-    if (tvSocket.readyState === WebSocket.OPEN) {
-      tvSocket.send(command);
-      res.status(200).json({ message: `Sent command: ${command} to Android TV at ${deviceIp}` });
-    } else {
-      res.status(400).json({ message: `Connection to Android TV at ${deviceIp} is not open` });
-    }
-  } else {
-    res.status(404).json({ message: `No connection to Android TV at ${deviceIp}` });
-  }
-});
-
-
-
-
 
 
 
