@@ -7,9 +7,6 @@ const path = require("path");
 const PptxGenJS = require("pptxgenjs");
 require("dotenv").config();
 
-const dgram = require("dgram");
-const adb = require("adbkit");
-
 
 const app = express();
 app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
@@ -20,72 +17,6 @@ if (!GOOGLE_GEMINI_API_KEY) {
     console.error("❌ Error: GOOGLE_GEMINI_API_KEY is missing in .env file.");
     process.exit(1);
 }
-
-
-
-
-const client = adb.createClient();
-
-let discoveredDevices = [];
-
-// ** Discover TVs using SDMP **
-const discoverTVs = () => {
-    const socket = dgram.createSocket("udp4");
-    const message = Buffer.from("DISCOVER");
-
-    socket.on("message", (msg, rinfo) => {
-        const deviceInfo = { ip: rinfo.address, name: msg.toString() };
-        if (!discoveredDevices.find(d => d.ip === deviceInfo.ip)) {
-            discoveredDevices.push(deviceInfo);
-            console.log("Found TV:", deviceInfo);
-        }
-    });
-
-    socket.bind(() => {
-        socket.setBroadcast(true);
-        socket.send(message, 0, message.length, 1900, "255.255.255.255");
-    });
-
-    setTimeout(() => socket.close(), 5000);
-};
-
-// ** Send Key Events via ADB **
-const sendKeyEvent = async (tvIp, keycode) => {
-    try {
-        await client.connect(tvIp, 5555);
-        await client.shell(tvIp, `input keyevent ${keycode}`);
-    } catch (error) {
-        console.error("Error sending key event:", error);
-    }
-};
-
-// ** API Endpoint: Discover TVs **
-app.get("/discoverTVs", (req, res) => {
-    discoveredDevices = [];
-    discoverTVs();
-    setTimeout(() => res.json({ devices: discoveredDevices }), 6000);
-});
-
-// ** API Endpoint: Control TV (D-pad Navigation) **
-app.post("/controlTV", async (req, res) => {
-    const { tvIp, command } = req.body;
-    const keyMappings = {
-        "up": "19", "down": "20", "left": "21", "right": "22",
-        "ok": "23", "back": "4", "home": "3"
-    };
-
-    if (keyMappings[command]) {
-        await sendKeyEvent(tvIp, keyMappings[command]);
-        res.json({ success: true, command: command });
-    } else {
-        res.status(400).json({ error: "Invalid command" });
-    }
-});
-
-
-
-
-
 
 
 
@@ -297,7 +228,9 @@ Generate a structured PowerPoint presentation on "${topic}" with exactly ${slide
 Slide Structure:
 
 1. Slide Title: Format as "Slide X: Title".
-2. Content: Bullet points explaining key concepts in simple terms.
+2. Content: Provide **exactly 4 to 5 bullet points** explaining key concepts in simple terms. Every slide must have at least 4 points.
+
+Ensure that the number of points remains consistent across all slides, even if there are more than 14 slides.
 
 Example:
 
@@ -305,11 +238,17 @@ Slide 1: Introduction to ${topic}
 
 - Definition of ${topic}.
 - Importance and real-world applications.
+- How it impacts various industries.
+- Key reasons why ${topic} is relevant today.
+- Future scope and advancements.
 
 Slide 2: Key Features
 
 - Feature 1: Explanation.
 - Feature 2: Explanation.
+- Feature 3: Explanation.
+- Feature 4: Explanation.
+- Feature 5: Explanation.
 `;
     }
 
