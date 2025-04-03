@@ -33,6 +33,7 @@
     "tesseract.js": "^6.0.0",
     "image-size": "^2.0.1",
     "pptx2json": "^0.0.10",
+    "razorpay": "^2.9.6",
     "mammoth": "^1.9.0",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^3.12.0",
