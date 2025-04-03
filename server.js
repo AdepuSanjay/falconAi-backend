@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const PptxGenJS = require("pptxgenjs");
 require("dotenv").config();
-
+const Razorpay = require('razorpay');
 
 const app = express();
 app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
@@ -21,6 +21,38 @@ if (!GOOGLE_GEMINI_API_KEY) {
 
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+
+const razorpay = new Razorpay({
+  key_id: 'your_key_id_here',  // Replace with your actual Razorpay Key ID
+  key_secret: 'your_key_secret_here',  // Replace with your actual Razorpay Key Secret
+});
+
+app.post('/create-order', async (req, res) => {
+  const { amount, currency } = req.body;
+  
+  const options = {
+    amount: amount * 100, // Convert to paise (₹1 = 100 paise)
+    currency,
+    receipt: `order_rcptid_${Date.now()}`
+  };
+
+  try {
+    const order = await razorpay.orders.create(options);
+    res.json(order);
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+
+
+
+
+
+
+
+
+
+
 
 //get list of previous ppts 
 
@@ -42,7 +74,6 @@ app.get("/get-previous-slides", (req, res) => {
         res.status(500).json({ error: "Failed to fetch previous slides" });
     }
 });
-
 
 
 
