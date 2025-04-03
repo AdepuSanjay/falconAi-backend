@@ -22,6 +22,31 @@ if (!GOOGLE_GEMINI_API_KEY) {
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
+//get list of previous ppts 
+
+app.get("/get-previous-slides", (req, res) => {
+    try {
+        const files = fs.readdirSync("/tmp").filter(file => file.endsWith(".json"));
+        if (files.length === 0) {
+            return res.json({ success: true, slides: [] });
+        }
+
+        const previousSlides = files.map(file => {
+            const topic = file.replace(".json", "").replace(/_/g, " ");
+            return { topic, path: file };
+        });
+
+        res.json({ success: true, previousSlides });
+    } catch (error) {
+        console.error("Error fetching previous slides:", error.message);
+        res.status(500).json({ error: "Failed to fetch previous slides" });
+    }
+});
+
+
+
+
+
 // Fetch slides
 app.get("/get-slides/:topic", (req, res) => {
     try {
