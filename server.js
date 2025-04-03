@@ -66,11 +66,18 @@ app.post("/translate", async (req, res) => {
     }
 });
 
+
 // Update slides
 app.post("/update-slides", (req, res) => {
     try {
-        const { topic, slides, useImages } = req.body;
-        const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
+        let { topic, slides, useImages } = req.body;
+
+        if (!topic) {
+            return res.status(400).json({ error: "Topic is required" });
+        }
+
+        topic = topic.trim(); // Remove spaces at the start and end
+        const jsonPath = path.join("/tmp", `${topic.replace(/\s+/g, "_")}.json`);
 
         if (!slides || slides.length === 0) {
             return res.status(400).json({ error: "No slides to save" });
@@ -92,6 +99,7 @@ app.post("/update-slides", (req, res) => {
         res.status(500).json({ error: "Failed to update slides" });
     }
 });
+
 
 // Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {
