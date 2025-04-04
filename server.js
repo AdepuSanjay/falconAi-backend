@@ -126,130 +126,102 @@ app.post("/translate", async (req, res) => {
 
 // Update slides
 app.post("/update-slides", (req, res) => {
-  try {
-    let { topic, slides, useImages } = req.body;
+try {
+let { topic, slides, useImages } = req.body;
 
-    if (!topic) {
-      return res.status(400).json({ error: "Topic is required" });
-    }
+if (!topic) {  
+        return res.status(400).json({ error: "Topic is required" });  
+    }  
 
-    topic = topic.trim(); // Remove spaces at the start and end
-    const jsonPath = path.join("/tmp", `${topic.replace(/\s+/g, "_")}.json`);
+    topic = topic.trim(); // Remove spaces at the start and end  
+    const jsonPath = path.join("/tmp", `${topic.replace(/\s+/g, "_")}.json`);  
 
-    if (!slides || slides.length === 0) {
-      return res.status(400).json({ error: "No slides to save" });
-    }
+    if (!slides || slides.length === 0) {  
+        return res.status(400).json({ error: "No slides to save" });  
+    }  
 
-    const formattedSlides = slides.map((slide) => ({
-      title: slide.title || "Untitled Slide",
-      content: (slide.content || []).filter((text) => text.trim() !== ""),
-      theme: slide.theme || "#FFFFFF",
-      titleColor: slide.titleColor || "#000000",
-      contentColor: slide.contentColor || "#000000",
-      fontFamily: slide.fontFamily || "default", // Save font family
-      image: useImages ? slide.image || null : null,
-    }));
+    const formattedSlides = slides.map((slide) => ({  
+        title: slide.title || "Untitled Slide",  
+        content: (slide.content || []).filter(text => text.trim() !== ""),  
+        theme: slide.theme || "#FFFFFF",  
+        titleColor: slide.titleColor || "#000000",  
+        contentColor: slide.contentColor || "#000000",  
+        image: useImages ? slide.image || null : null,  
+    }));  
 
-    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");
-    res.json({ success: true, message: "Slides updated successfully!" });
-  } catch (error) {
-    console.error("Error updating slides:", error.message);
-    res.status(500).json({ error: "Failed to update slides" });
-  }
-});
-
-
-// Supported fonts by pptxgenjs
-const supportedFonts = [
-  "Arial", "Arial Black", "Calibri", "Cambria", "Comic Sans MS",
-  "Courier New", "Garamond", "Georgia", "Helvetica", "Impact",
-  "Lucida Console", "Lucida Sans Unicode", "Palatino Linotype",
-  "Segoe UI", "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana"
-];
-
-// Function to extract supported font from a string like "'Raleway', sans-serif"
-function getSupportedFont(fontString, fallback) {
-  if (!fontString) return fallback;
-  const cleanedFont = fontString.split(",")[0].replace(/['"]+/g, "").trim();
-  return supportedFonts.includes(cleanedFont) ? cleanedFont : fallback;
+    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");  
+    res.json({ success: true, message: "Slides updated successfully!" });  
+} catch (error) {  
+    console.error("Error updating slides:", error.message);  
+    res.status(500).json({ error: "Failed to update slides" });  
 }
 
-// Download PPT route
-app.get("/download-ppt/:topic", async (req, res) => {
-  try {
-    const topic = req.params.topic;
-    const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
-
-    if (!fs.existsSync(jsonPath)) {
-      return res.status(404).json({ error: "No slides found for this topic" });
-    }
-
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-    let pptx = new PptxGenJS();
-
-    slides.forEach((slide) => {
-      let slidePpt = pptx.addSlide();
-      slidePpt.background = { color: slide.theme || "#dde6ed" };
-
-      const titleFont = getSupportedFont(slide.fontFamily, "Arial Black");
-      const contentFont = getSupportedFont(slide.fontFamily, "Arial");
-
-      // Title
-      slidePpt.addText(slide.title, {
-        x: 0.5, y: 0.5, w: "90%",
-        fontSize: 28, bold: true,
-        color: slide.titleColor || "#D63384",
-        align: "left", fontFace: titleFont
-      });
-
-      // Content
-      const formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
-      const contentTextOptions = {
-        x: 0.5, y: 1.5,
-        fontSize: 20,
-        color: slide.contentColor || "#333333",
-        fontFace: contentFont,
-        lineSpacing: 28,
-        align: "left"
-      };
-
-      if (slide.image) {
-        slidePpt.addText(formattedContent, {
-          ...contentTextOptions,
-          w: "70%", h: 3.5
-        });
-
-        slidePpt.addImage({
-          path: slide.image,
-          x: 7.36, y: 1.5, w: 2.5, h: 2.5
-        });
-      } else {
-        slidePpt.addText(formattedContent, {
-          ...contentTextOptions,
-          w: "95%", h: 3.5
-        });
-      }
-    });
-
-    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;
-    const pptFilePath = path.join("/tmp", pptFileName);
-
-    await pptx.writeFile({ fileName: pptFilePath });
-
-    res.download(pptFilePath, pptFileName, (err) => {
-      if (err) {
-        console.error("Error downloading PPT:", err.message);
-        res.status(500).json({ error: "Failed to download PPT" });
-      }
-    });
-  } catch (error) {
-    console.error("Error generating PPT:", error.message);
-    res.status(500).json({ error: "Failed to generate PPT" });
-  }
 });
 
 
+// Download PPT
+app.get("/download-ppt/:topic", async (req, res) => {
+try {
+const topic = req.params.topic;
+const jsonPath = path.join("/tmp", ${topic.replace(/\s/g, "_")}.json);
 
+if (!fs.existsSync(jsonPath)) {  
+        return res.status(404).json({ error: "No slides found for this topic" });  
+    }  
+
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));  
+    let pptx = new PptxGenJS();  
+
+    slides.forEach((slide) => {  
+        let slidePpt = pptx.addSlide();  
+        slidePpt.background = { color: slide.theme || "#dde6ed" };  
+
+        slidePpt.addText(slide.title, {  
+            x: 0.5, y: 0.5, w: "90%",  
+            fontSize: 28, bold: true,  
+            color: slide.titleColor || "#D63384",  
+            align: "left", fontFace: "Arial Black"  
+        });  
+
+        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");  
+
+        if (slide.image) {  
+            slidePpt.addText(formattedContent, {  
+                x: 0.5, y: 1.5, w: "70%", h: 3.5,  
+                fontSize: 20, color: slide.contentColor || "#333333",  
+                fontFace: "Arial", lineSpacing: 28, align: "left"  
+            });  
+
+            slidePpt.addImage({  
+                path: slide.image,  
+                x: 7.36, y: 1.5, w: 2.5, h: 2.5  
+            });  
+        } else {  
+            slidePpt.addText(formattedContent, {  
+                x: 0.5, y: 1.5, w: "95%", h: 3.5,  
+                fontSize: 20, color: slide.contentColor || "#333333",  
+                fontFace: "Arial", lineSpacing: 28, align: "left"  
+            });  
+        }  
+    });  
+
+    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;  
+    const pptFilePath = path.join("/tmp", pptFileName);  
+
+    await pptx.writeFile({ fileName: pptFilePath });  
+
+    res.download(pptFilePath, pptFileName, (err) => {  
+        if (err) {  
+            console.error("Error downloading PPT:", err.message);  
+            res.status(500).json({ error: "Failed to download PPT" });  
+        }  
+    });  
+} catch (error) {  
+    console.error("Error generating PPT:", error.message);  
+    res.status(500).json({ error: "Failed to generate PPT" });  
+}
+
+});
 
 
 
