@@ -123,37 +123,39 @@ app.post("/translate", async (req, res) => {
 });
 
 
+
 // Update slides
 app.post("/update-slides", (req, res) => {
-    try {
-        let { topic, slides, useImages } = req.body;
+  try {
+    let { topic, slides, useImages } = req.body;
 
-        if (!topic) {
-            return res.status(400).json({ error: "Topic is required" });
-        }
-
-        topic = topic.trim(); // Remove spaces at the start and end
-        const jsonPath = path.join("/tmp", `${topic.replace(/\s+/g, "_")}.json`);
-
-        if (!slides || slides.length === 0) {
-            return res.status(400).json({ error: "No slides to save" });
-        }
-
-        const formattedSlides = slides.map((slide) => ({
-            title: slide.title || "Untitled Slide",
-            content: (slide.content || []).filter(text => text.trim() !== ""),
-            theme: slide.theme || "#FFFFFF",
-            titleColor: slide.titleColor || "#000000",
-            contentColor: slide.contentColor || "#000000",
-            image: useImages ? slide.image || null : null,
-        }));
-
-        fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");
-        res.json({ success: true, message: "Slides updated successfully!" });
-    } catch (error) {
-        console.error("Error updating slides:", error.message);
-        res.status(500).json({ error: "Failed to update slides" });
+    if (!topic) {
+      return res.status(400).json({ error: "Topic is required" });
     }
+
+    topic = topic.trim(); // Remove spaces at the start and end
+    const jsonPath = path.join("/tmp", `${topic.replace(/\s+/g, "_")}.json`);
+
+    if (!slides || slides.length === 0) {
+      return res.status(400).json({ error: "No slides to save" });
+    }
+
+    const formattedSlides = slides.map((slide) => ({
+      title: slide.title || "Untitled Slide",
+      content: (slide.content || []).filter((text) => text.trim() !== ""),
+      theme: slide.theme || "#FFFFFF",
+      titleColor: slide.titleColor || "#000000",
+      contentColor: slide.contentColor || "#000000",
+      fontFamily: slide.fontFamily || "default", // Save font family
+      image: useImages ? slide.image || null : null,
+    }));
+
+    fs.writeFileSync(jsonPath, JSON.stringify(formattedSlides, null, 2), "utf-8");
+    res.json({ success: true, message: "Slides updated successfully!" });
+  } catch (error) {
+    console.error("Error updating slides:", error.message);
+    res.status(500).json({ error: "Failed to update slides" });
+  }
 });
 
 
