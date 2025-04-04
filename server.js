@@ -158,69 +158,82 @@ app.post("/update-slides", (req, res) => {
   }
 });
 
-
 // Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {
-    try {
-        const topic = req.params.topic;
-        const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
+  try {
+    const topic = req.params.topic;
+    const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
-        if (!fs.existsSync(jsonPath)) {
-            return res.status(404).json({ error: "No slides found for this topic" });
-        }
-
-        const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-        let pptx = new PptxGenJS();
-
-        slides.forEach((slide) => {
-            let slidePpt = pptx.addSlide();
-            slidePpt.background = { color: slide.theme || "#dde6ed" };
-
-            slidePpt.addText(slide.title, {
-                x: 0.5, y: 0.5, w: "90%",
-                fontSize: 28, bold: true,
-                color: slide.titleColor || "#D63384",
-                align: "left", fontFace: "Arial Black"
-            });
-
-            let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
-
-            if (slide.image) {
-                slidePpt.addText(formattedContent, {
-                    x: 0.5, y: 1.5, w: "70%", h: 3.5,
-                    fontSize: 20, color: slide.contentColor || "#333333",
-                    fontFace: "Arial", lineSpacing: 28, align: "left"
-                });
-
-                slidePpt.addImage({
-                    path: slide.image,
-                    x: 7.36, y: 1.5, w: 2.5, h: 2.5
-                });
-            } else {
-                slidePpt.addText(formattedContent, {
-                    x: 0.5, y: 1.5, w: "95%", h: 3.5,
-                    fontSize: 20, color: slide.contentColor || "#333333",
-                    fontFace: "Arial", lineSpacing: 28, align: "left"
-                });
-            }
-        });
-
-        const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;
-        const pptFilePath = path.join("/tmp", pptFileName);
-
-        await pptx.writeFile({ fileName: pptFilePath });
-
-        res.download(pptFilePath, pptFileName, (err) => {
-            if (err) {
-                console.error("Error downloading PPT:", err.message);
-                res.status(500).json({ error: "Failed to download PPT" });
-            }
-        });
-    } catch (error) {
-        console.error("Error generating PPT:", error.message);
-        res.status(500).json({ error: "Failed to generate PPT" });
+    if (!fs.existsSync(jsonPath)) {
+      return res.status(404).json({ error: "No slides found for this topic" });
     }
+
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    let pptx = new PptxGenJS();
+
+    slides.forEach((slide) => {
+      let slidePpt = pptx.addSlide();
+      slidePpt.background = { color: slide.theme || "#dde6ed" };
+
+      // Use provided font family or fallback to 'Arial Black'
+      const titleFont = slide.fontFamily || "Arial Black";
+      const contentFont = slide.fontFamily || "Arial";
+
+      // Title
+      slidePpt.addText(slide.title, {
+        x: 0.5, y: 0.5, w: "90%",
+        fontSize: 28, bold: true,
+        color: slide.titleColor || "#D63384",
+        align: "left", fontFace: titleFont
+      });
+
+      // Content
+      let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
+
+      const contentTextOptions = {
+        x: 0.5, y: 1.5,
+        fontSize: 20,
+        color: slide.contentColor || "#333333",
+        fontFace: contentFont,
+        lineSpacing: 28,
+        align: "left"
+      };
+
+      if (slide.image) {
+        slidePpt.addText(formattedContent, {
+          ...contentTextOptions,
+          w: "70%", h: 3.5
+        });
+
+        slidePpt.addImage({
+          path: slide.image,
+          x: 7.36, y: 1.5, w: 2.5, h: 2.5
+        });
+      } else {
+        slidePpt.addText(formattedContent, {
+          ...contentTextOptions,
+          w: "95%", h: 3.5
+        });
+      }
+    });
+
+    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;
+    const pptFilePath = path.join("/tmp", pptFileName);
+
+    await pptx.writeFile({ fileName: pptFilePath });
+
+    res.download(pptFilePath, pptFileName, (err) => {
+      if (err) {
+        console.error("Error downloading PPT:", err.message);
+        res.status(500).json({ error: "Failed to download PPT" });
+      }
+    });
+  } catch (error) {
+    console.error("Error generating PPT:", error.message);
+    res.status(500).json({ error: "Failed to generate PPT" });
+  }
 });
+
 
 // Parse AI response
 
