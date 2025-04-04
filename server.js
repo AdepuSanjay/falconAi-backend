@@ -9,7 +9,7 @@ require("dotenv").config();
 const Razorpay = require('razorpay');
 
 const app = express();
-app.use(cors({ origin: "http://localhost:5173", methods: ["GET", "POST"] }));
+app.use(cors({ origin: "https://falconai.vercel.app", methods: ["GET", "POST"] }));
 app.use(express.json());
 
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
