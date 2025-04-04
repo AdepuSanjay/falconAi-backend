@@ -163,7 +163,7 @@ if (!topic) {
 app.get("/download-ppt/:topic", async (req, res) => {
 try {
 const topic = req.params.topic;
-const jsonPath = path.join("/tmp", ${topic.replace(/\s/g, "_")}.json);
+const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
 if (!fs.existsSync(jsonPath)) {  
         return res.status(404).json({ error: "No slides found for this topic" });  
