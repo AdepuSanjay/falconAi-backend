@@ -158,7 +158,23 @@ app.post("/update-slides", (req, res) => {
   }
 });
 
-// Download PPT
+
+// Supported fonts by pptxgenjs
+const supportedFonts = [
+  "Arial", "Arial Black", "Calibri", "Cambria", "Comic Sans MS",
+  "Courier New", "Garamond", "Georgia", "Helvetica", "Impact",
+  "Lucida Console", "Lucida Sans Unicode", "Palatino Linotype",
+  "Segoe UI", "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana"
+];
+
+// Function to extract supported font from a string like "'Raleway', sans-serif"
+function getSupportedFont(fontString, fallback) {
+  if (!fontString) return fallback;
+  const cleanedFont = fontString.split(",")[0].replace(/['"]+/g, "").trim();
+  return supportedFonts.includes(cleanedFont) ? cleanedFont : fallback;
+}
+
+// Download PPT route
 app.get("/download-ppt/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
@@ -175,9 +191,8 @@ app.get("/download-ppt/:topic", async (req, res) => {
       let slidePpt = pptx.addSlide();
       slidePpt.background = { color: slide.theme || "#dde6ed" };
 
-      // Use provided font family or fallback to 'Arial Black'
-      const titleFont = slide.fontFamily || "Arial Black";
-      const contentFont = slide.fontFamily || "Arial";
+      const titleFont = getSupportedFont(slide.fontFamily, "Arial Black");
+      const contentFont = getSupportedFont(slide.fontFamily, "Arial");
 
       // Title
       slidePpt.addText(slide.title, {
@@ -188,8 +203,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
       });
 
       // Content
-      let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
-
+      const formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");
       const contentTextOptions = {
         x: 0.5, y: 1.5,
         fontSize: 20,
@@ -233,6 +247,12 @@ app.get("/download-ppt/:topic", async (req, res) => {
     res.status(500).json({ error: "Failed to generate PPT" });
   }
 });
+
+
+
+
+
+
 
 
 // Parse AI response
