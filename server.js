@@ -178,7 +178,7 @@ if (!fs.existsSync(jsonPath)) {
 
         slidePpt.addText(slide.title, {  
             x: 0.5, y: 0.5, w: "85%",  
-            fontSize: 24, bold: true,  
+            fontSize: 23, bold: true,  
             color: slide.titleColor || "#D63384",  
             align: "left", fontFace: "Arial Black"  
         });  
@@ -187,7 +187,7 @@ if (!fs.existsSync(jsonPath)) {
 
        if (slide.image) {
     const imageWidth = 3;
-    const imageHeight = 5.40; // Full height
+    const imageHeight = 5.58; // Full height
     const slideWidth = 10; // Default width
     const margin = 0.5;
     const textWidth = slideWidth - imageWidth - (margin * 2); // Remaining width after image and margins
