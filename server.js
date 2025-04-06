@@ -196,11 +196,11 @@ if (!fs.existsSync(jsonPath)) {
         x: margin,
         y: margin,
         w: textWidth,
-        h: imageHeight - (margin * 2),
-        fontSize: 20,
+        h: imageHeight - (margin * 1.8),
+        fontSize: 17,
         color: slide.contentColor || "#333333",
         fontFace: "Arial",
-        lineSpacing: 28,
+        lineSpacing: 26,
         align: "left"
     });
 
