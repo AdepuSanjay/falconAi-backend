@@ -185,24 +185,42 @@ if (!fs.existsSync(jsonPath)) {
 
         let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");  
 
-        if (slide.image) {  
-            slidePpt.addText(formattedContent, {  
-                x: 0.5, y: 1.5, w: "70%", h: 3.5,  
-                fontSize: 20, color: slide.contentColor || "#333333",  
-                fontFace: "Arial", lineSpacing: 28, align: "left"  
-            });  
+       if (slide.image) {
+    const imageWidth = 3;
+    const imageHeight = 5.25; // Full height
+    const slideWidth = 10; // Default width
+    const margin = 0.5;
+    const textWidth = slideWidth - imageWidth - (margin * 2); // Remaining width after image and margins
 
-            slidePpt.addImage({  
-                path: slide.image,  
-                x: 7.36, y: 1.5, w: 2.5, h: 4.5 
-            });  
-        } else {  
-            slidePpt.addText(formattedContent, {  
-                x: 0.5, y: 1.5, w: "95%", h: 3.5,  
-                fontSize: 20, color: slide.contentColor || "#333333",  
-                fontFace: "Arial", lineSpacing: 28, align: "left"  
-            });  
-        }  
+    slidePpt.addText(formattedContent, {
+        x: margin,
+        y: margin,
+        w: textWidth,
+        h: imageHeight - (margin * 2),
+        fontSize: 20,
+        color: slide.contentColor || "#333333",
+        fontFace: "Arial",
+        lineSpacing: 28,
+        align: "left"
+    });
+
+    slidePpt.addImage({
+        path: slide.image,
+        x: slideWidth - imageWidth,
+        y: 0,
+        w: imageWidth,
+        h: imageHeight
+    });
+} else {
+    slidePpt.addText(formattedContent, {
+        x: 0.5, y: 1.5, w: "95%", h: 3.5,
+        fontSize: 20,
+        color: slide.contentColor || "#333333",
+        fontFace: "Arial",
+        lineSpacing: 28,
+        align: "left"
+    });
+}
     });  
 
     const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;  
