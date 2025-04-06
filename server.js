@@ -177,8 +177,8 @@ if (!fs.existsSync(jsonPath)) {
         slidePpt.background = { color: slide.theme || "#dde6ed" };  
 
         slidePpt.addText(slide.title, {  
-            x: 0.5, y: 0.5, w: "90%",  
-            fontSize: 28, bold: true,  
+            x: 0.5, y: 0.5, w: "85%",  
+            fontSize: 24, bold: true,  
             color: slide.titleColor || "#D63384",  
             align: "left", fontFace: "Arial Black"  
         });  
@@ -197,7 +197,7 @@ if (!fs.existsSync(jsonPath)) {
         y: margin,
         w: textWidth,
         h: imageHeight - (margin * 1.8),
-        fontSize: 17,
+        fontSize: 15,
         color: slide.contentColor || "#333333",
         fontFace: "Arial",
         lineSpacing: 26,
