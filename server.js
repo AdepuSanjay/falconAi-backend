@@ -194,7 +194,7 @@ if (!fs.existsSync(jsonPath)) {
 
             slidePpt.addImage({  
                 path: slide.image,  
-                x: 7.36, y: 1.5, w: 2.5, h: 2.5  
+                x: 7.36, y: 1.5, w: 2.5, h: 4.5 
             });  
         } else {  
             slidePpt.addText(formattedContent, {  
