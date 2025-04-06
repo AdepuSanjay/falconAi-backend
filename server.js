@@ -177,7 +177,7 @@ if (!fs.existsSync(jsonPath)) {
         slidePpt.background = { color: slide.theme || "#dde6ed" };  
 
         slidePpt.addText(slide.title, {  
-            x: 0.5, y: 0.5, w: "85%",  
+            x: 0.5, y: 0.5, w: "80%",  
             fontSize: 23, bold: true,  
             color: slide.titleColor || "#D63384",  
             align: "left", fontFace: "Arial Black"  
