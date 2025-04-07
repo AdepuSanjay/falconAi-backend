@@ -159,168 +159,99 @@ if (!topic) {
 });
 
 
-// Download PPT
-app.get("/download-ppt/:topic", async (req, res) => {
-try {
-const topic = req.params.topic;
-const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
-if (!fs.existsSync(jsonPath)) {  
-        return res.status(404).json({ error: "No slides found for this topic" });  
-    }  
 
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));  
-    let pptx = new PptxGenJS();  
-
-    slides.forEach((slide) => {  
-        let slidePpt = pptx.addSlide();  
-        slidePpt.background = { color: slide.theme || "#dde6ed" };  
-
-        slidePpt.addText(slide.title, {  
-            x: 0.5, y: 0.5, w: "80%",  
-            fontSize: 23, bold: true,  
-            color: slide.titleColor || "#D63384",  
-            align: "left", fontFace: "Arial Black"  
-        });  
-
-        
-
-      slide.content.forEach((point, idx) => {
-    let slideText = point;
-    const bullet = "🔹 ";
-
+// Download PPT  
+app.get("/download-ppt/:topic", async (req, res) => {  
+try {  
+const topic = req.params.topic;  
+const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);  
+  
+if (!fs.existsSync(jsonPath)) {    
+        return res.status(404).json({ error: "No slides found for this topic" });    
+    }    
+  
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));    
+    let pptx = new PptxGenJS();    
+  
+    slides.forEach((slide) => {    
+        let slidePpt = pptx.addSlide();    
+        slidePpt.background = { color: slide.theme || "#dde6ed" };    
+  
+        slidePpt.addText(slide.title, {    
+            x: 0.5, y: 0.5, w: "80%",    
+            fontSize: 23, bold: true,    
+            color: slide.titleColor || "#D63384",    
+            align: "left", fontFace: "Arial Black"    
+        });    
+  
+        let formattedContent = slide.content.map(point => {
     if (point.includes(":")) {
-        const [heading, rest] = point.split(/:(.+)/); // Split only at the first colon
-        slidePpt.addText(
-            [
-                { text: `${bullet}${heading}:`, options: { bold: true, color: slide.theme || "#000000", fontSize: 16 } },
-                { text: rest, options: { color: slide.contentColor || "#333333", fontSize: 15 } }
-            ],
-            {
-                x: 0.6,
-                y: 1.2 + idx * 0.6, // adjust line height
-                w: "80%",
-                align: "left",
-                fontFace: "Arial",
-                lineSpacing: 20
-            }
-        );
+        const [label, rest] = point.split(/:(.*)/); // split only on first colon
+        return [
+            { text: `🔹 ${label.trim()}: `, options: { bold: true } },
+            { text: rest.trim() }
+        ];
     } else {
-        slidePpt.addText(`${bullet}${slideText}`, {
-            x: 0.6,
-            y: 1.2 + idx * 0.6,
-            w: "80%",
-            fontSize: 15,
-            color: slide.contentColor || "#333333",
-            fontFace: "Arial",
-            align: "left"
-        });
+        return [{ text: `🔹 ${point}` }];
     }
-});
-
-
- if (slide.image) {
-    const imageWidth = 3;
-    const imageHeight = 5.58;
-    const slideWidth = 10;
-    const margin = 0.5;
-    const textWidth = slideWidth - imageWidth - (margin * 2);
-
-    // Render content with highlighted headings and bullets
-    slide.content.forEach((point, idx) => {
-        let bullet = "🔹 ";
-        if (point.includes(":")) {
-            const [heading, rest] = point.split(/:(.+)/);
-            slidePpt.addText(
-                [
-                    { text: `${bullet}${heading}:`, options: { bold: true, color: slide.theme || "#000000", fontSize: 15 } },
-                    { text: rest, options: { color: slide.contentColor || "#333333", fontSize: 14 } }
-                ],
-                {
-                    x: margin,
-                    y: margin + idx * 0.6,
-                    w: textWidth,
-                    align: "left",
-                    fontFace: "Arial",
-                    lineSpacing: 20
-                }
-            );
-        } else {
-            slidePpt.addText(`${bullet}${point}`, {
-                x: margin,
-                y: margin + idx * 0.6,
-                w: textWidth,
-                fontSize: 14,
-                color: slide.contentColor || "#333333",
-                fontFace: "Arial",
-                align: "left"
-            });
-        }
-    });
-
-    slidePpt.addImage({
-        path: slide.image,
-        x: slideWidth - imageWidth,
-        y: 0,
-        w: imageWidth,
-        h: imageHeight
-    });
-} else {
-    // Same logic without image
-    slide.content.forEach((point, idx) => {
-        let bullet = "🔹 ";
-        if (point.includes(":")) {
-            const [heading, rest] = point.split(/:(.+)/);
-            slidePpt.addText(
-                [
-                    { text: `${bullet}${heading}:`, options: { bold: true, color: slide.theme || "#000000", fontSize: 16 } },
-                    { text: rest, options: { color: slide.contentColor || "#333333", fontSize: 15 } }
-                ],
-                {
-                    x: 0.6,
-                    y: 1.2 + idx * 0.6,
-                    w: "90%",
-                    align: "left",
-                    fontFace: "Arial",
-                    lineSpacing: 20
-                }
-            );
-        } else {
-            slidePpt.addText(`${bullet}${point}`, {
-                x: 0.6,
-                y: 1.2 + idx * 0.6,
-                w: "90%",
-                fontSize: 15,
-                color: slide.contentColor || "#333333",
-                fontFace: "Arial",
-                align: "left"
-            });
-        }
-    });
-}
-
-       
-
-
-   });  
-
-    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;  
-    const pptFilePath = path.join("/tmp", pptFileName);  
-
-    await pptx.writeFile({ fileName: pptFilePath });  
-
-    res.download(pptFilePath, pptFileName, (err) => {  
-        if (err) {  
-            console.error("Error downloading PPT:", err.message);  
-            res.status(500).json({ error: "Failed to download PPT" });  
-        }  
+});    
+  
+       if (slide.image) {  
+    const imageWidth = 3;  
+    const imageHeight = 5.58; // Full height  
+    const slideWidth = 10; // Default width  
+    const margin = 0.5;  
+    const textWidth = slideWidth - imageWidth - (margin * 2); // Remaining width after image and margins  
+  
+    slidePpt.addText(formattedContent, {  
+        x: margin,  
+        y: margin,  
+        w: textWidth,  
+        h: imageHeight - (margin * 1.8),  
+        fontSize: 15,  
+        color: slide.contentColor || "#333333",  
+        fontFace: "Arial",  
+        lineSpacing: 26,  
+        align: "left"  
     });  
-} catch (error) {  
-    console.error("Error generating PPT:", error.message);  
-    res.status(500).json({ error: "Failed to generate PPT" });  
-}
-
-});
+  
+    slidePpt.addImage({  
+        path: slide.image,  
+        x: slideWidth - imageWidth,  
+        y: 0,  
+        w: imageWidth,  
+        h: imageHeight  
+    });  
+} else {  
+    slidePpt.addText(formattedContent, {  
+        x: 0.5, y: 1.5, w: "95%", h: 3.5,  
+        fontSize: 20,  
+        color: slide.contentColor || "#333333",  
+        fontFace: "Arial",  
+        lineSpacing: 28,  
+        align: "left"  
+    });  
+}  
+    });    
+  
+    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;    
+    const pptFilePath = path.join("/tmp", pptFileName);    
+  
+    await pptx.writeFile({ fileName: pptFilePath });    
+  
+    res.download(pptFilePath, pptFileName, (err) => {    
+        if (err) {    
+            console.error("Error downloading PPT:", err.message);    
+            res.status(500).json({ error: "Failed to download PPT" });    
+        }    
+    });    
+} catch (error) {    
+    console.error("Error generating PPT:", error.message);    
+    res.status(500).json({ error: "Failed to generate PPT" });    
+}  
+  
+});  
 
 
 
