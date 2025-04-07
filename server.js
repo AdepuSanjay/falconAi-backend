@@ -183,25 +183,79 @@ if (!fs.existsSync(jsonPath)) {
             align: "left", fontFace: "Arial Black"  
         });  
 
-        let formattedContent = slide.content.map(point => `🔹 ${point}`).join("\n");  
+        
 
-       if (slide.image) {
+      slide.content.forEach((point, idx) => {
+    let slideText = point;
+    const bullet = "🔹 ";
+
+    if (point.includes(":")) {
+        const [heading, rest] = point.split(/:(.+)/); // Split only at the first colon
+        slidePpt.addText(
+            [
+                { text: `${bullet}${heading}:`, options: { bold: true, color: slide.theme || "#000000", fontSize: 16 } },
+                { text: rest, options: { color: slide.contentColor || "#333333", fontSize: 15 } }
+            ],
+            {
+                x: 0.6,
+                y: 1.2 + idx * 0.6, // adjust line height
+                w: "80%",
+                align: "left",
+                fontFace: "Arial",
+                lineSpacing: 20
+            }
+        );
+    } else {
+        slidePpt.addText(`${bullet}${slideText}`, {
+            x: 0.6,
+            y: 1.2 + idx * 0.6,
+            w: "80%",
+            fontSize: 15,
+            color: slide.contentColor || "#333333",
+            fontFace: "Arial",
+            align: "left"
+        });
+    }
+});
+
+
+ if (slide.image) {
     const imageWidth = 3;
-    const imageHeight = 5.58; // Full height
-    const slideWidth = 10; // Default width
+    const imageHeight = 5.58;
+    const slideWidth = 10;
     const margin = 0.5;
-    const textWidth = slideWidth - imageWidth - (margin * 2); // Remaining width after image and margins
+    const textWidth = slideWidth - imageWidth - (margin * 2);
 
-    slidePpt.addText(formattedContent, {
-        x: margin,
-        y: margin,
-        w: textWidth,
-        h: imageHeight - (margin * 1.8),
-        fontSize: 15,
-        color: slide.contentColor || "#333333",
-        fontFace: "Arial",
-        lineSpacing: 26,
-        align: "left"
+    // Render content with highlighted headings and bullets
+    slide.content.forEach((point, idx) => {
+        let bullet = "🔹 ";
+        if (point.includes(":")) {
+            const [heading, rest] = point.split(/:(.+)/);
+            slidePpt.addText(
+                [
+                    { text: `${bullet}${heading}:`, options: { bold: true, color: slide.theme || "#000000", fontSize: 15 } },
+                    { text: rest, options: { color: slide.contentColor || "#333333", fontSize: 14 } }
+                ],
+                {
+                    x: margin,
+                    y: margin + idx * 0.6,
+                    w: textWidth,
+                    align: "left",
+                    fontFace: "Arial",
+                    lineSpacing: 20
+                }
+            );
+        } else {
+            slidePpt.addText(`${bullet}${point}`, {
+                x: margin,
+                y: margin + idx * 0.6,
+                w: textWidth,
+                fontSize: 14,
+                color: slide.contentColor || "#333333",
+                fontFace: "Arial",
+                align: "left"
+            });
+        }
     });
 
     slidePpt.addImage({
@@ -212,16 +266,43 @@ if (!fs.existsSync(jsonPath)) {
         h: imageHeight
     });
 } else {
-    slidePpt.addText(formattedContent, {
-        x: 0.5, y: 1.5, w: "95%", h: 3.5,
-        fontSize: 20,
-        color: slide.contentColor || "#333333",
-        fontFace: "Arial",
-        lineSpacing: 28,
-        align: "left"
+    // Same logic without image
+    slide.content.forEach((point, idx) => {
+        let bullet = "🔹 ";
+        if (point.includes(":")) {
+            const [heading, rest] = point.split(/:(.+)/);
+            slidePpt.addText(
+                [
+                    { text: `${bullet}${heading}:`, options: { bold: true, color: slide.theme || "#000000", fontSize: 16 } },
+                    { text: rest, options: { color: slide.contentColor || "#333333", fontSize: 15 } }
+                ],
+                {
+                    x: 0.6,
+                    y: 1.2 + idx * 0.6,
+                    w: "90%",
+                    align: "left",
+                    fontFace: "Arial",
+                    lineSpacing: 20
+                }
+            );
+        } else {
+            slidePpt.addText(`${bullet}${point}`, {
+                x: 0.6,
+                y: 1.2 + idx * 0.6,
+                w: "90%",
+                fontSize: 15,
+                color: slide.contentColor || "#333333",
+                fontFace: "Arial",
+                align: "left"
+            });
+        }
     });
 }
-    });  
+
+       
+
+
+   });  
 
     const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;  
     const pptFilePath = path.join("/tmp", pptFileName);  
