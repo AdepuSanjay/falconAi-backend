@@ -185,17 +185,17 @@ if (!fs.existsSync(jsonPath)) {
             align: "left", fontFace: "Arial Black"    
         });    
   
-        let formattedContent = slide.content.map(point => {
+        let formattedContent = slide.content.flatMap(point => {
     if (point.includes(":")) {
         const [label, rest] = point.split(/:(.*)/); // split only on first colon
         return [
             { text: `🔹 ${label.trim()}: `, options: { bold: true } },
-            { text: rest.trim() }
+            { text: `${rest.trim()}\n` }
         ];
     } else {
-        return [{ text: `🔹 ${point}` }];
+        return [{ text: `🔹 ${point}\n` }];
     }
-});    
+});
   
        if (slide.image) {  
     const imageWidth = 3;  
