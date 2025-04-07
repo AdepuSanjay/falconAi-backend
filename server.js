@@ -375,7 +375,7 @@ Slide 2: Key Features
 });
 
 
-// ✅ AI-Powered Search using Google Gemini with Context Handling
+// ✅ AI-Powered Search using Google Gemini with Context Handling (w/ Custom Branding)
 app.post("/ai-search", async (req, res) => {
     try {
         const { query, sessionId } = req.body;
@@ -408,7 +408,22 @@ app.post("/ai-search", async (req, res) => {
             { headers: { "Content-Type": "application/json" } }
         );
 
-        const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";
+        const aiResponseRaw =
+            response?.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "No relevant information found.";
+
+        // Check for restricted terms
+        const restrictedKeywords = [
+            "google", "gemini", "bard", "chatgpt", "openai", "gpt", "alphabet"
+        ];
+
+        const shouldOverride = restrictedKeywords.some(keyword =>
+            aiResponseRaw.toLowerCase().includes(keyword)
+        );
+
+        const aiResponse = shouldOverride
+            ? "I am a large model of FalconAI developed by Adepu Sanjay."
+            : aiResponseRaw;
 
         // Save current query & response in session history
         chatHistory.push({ query, response: aiResponse });
@@ -423,7 +438,6 @@ app.post("/ai-search", async (req, res) => {
         res.status(500).json({ error: "Failed to fetch search results" });
     }
 });
-
 
 
 const PORT = process.env.PORT || 3000;
