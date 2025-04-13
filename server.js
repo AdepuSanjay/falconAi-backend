@@ -340,7 +340,7 @@ Slide Structure:
 1. Slide Title: Format as "Slide X: Title".
 2. Content: Provide **exactly 4 to 5 
 bullet points** explaining key concepts in simple terms. Every slide must have at least 4 points.
-do not exceed 5 points.
+do not exceed 5 bullet points.
 Ensure that the number of points remains consistent across all slides, even if there are more than 14 slides.
 
 Example:
