@@ -177,66 +177,72 @@ if (!fs.existsSync(jsonPath)) {
     const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));    
     let pptx = new PptxGenJS();    
   
-    slides.forEach((slide) => {    
-        let slidePpt = pptx.addSlide();    
-        slidePpt.background = { color: slide.theme || "#dde6ed" };    
-  
-        slidePpt.addText(slide.title, {    
-            x: 0.5, y: 0.5, w: "80%",    
-            fontSize: 23, bold: true,    
-            color: slide.titleColor || "#D63384",    
-            align: "left", fontFace: "Arial Black"    
-        });    
-  
-        let formattedContent = slide.content.flatMap(point => {
-    if (point.includes(":")) {
-        const [label, rest] = point.split(/:(.*)/); // split only on first colon
-        return [
-            { text: `🔹 ${label.trim()}: `, options: { bold: true } },
-            { text: `${rest.trim()}\n` }
-        ];
+    slides.forEach((slide) => {
+    let slidePpt = pptx.addSlide();
+
+    // Support image or color theme backgrounds
+    if (slide.theme?.startsWith("http")) {
+        slidePpt.background = { path: slide.theme };
     } else {
-        return [{ text: `🔹 ${point}\n` }];
+        slidePpt.background = { color: slide.theme || "#dde6ed" };
+    }
+
+    slidePpt.addText(slide.title, {
+        x: 0.5, y: 0.5, w: "80%",
+        fontSize: 23, bold: true,
+        color: slide.titleColor || "#D63384",
+        align: "left", fontFace: "Arial Black"
+    });
+
+    let formattedContent = slide.content.flatMap(point => {
+        if (point.includes(":")) {
+            const [label, rest] = point.split(/:(.*)/);
+            return [
+                { text: `🔹 ${label.trim()}: `, options: { bold: true } },
+                { text: `${rest.trim()}\n` }
+            ];
+        } else {
+            return [{ text: `🔹 ${point}\n` }];
+        }
+    });
+
+    if (slide.image) {
+        const imageWidth = 3;
+        const imageHeight = 5.58;
+        const slideWidth = 10;
+        const margin = 0.5;
+        const textWidth = slideWidth - imageWidth - (margin * 2);
+
+        slidePpt.addText(formattedContent, {
+            x: margin,
+            y: margin,
+            w: textWidth,
+            h: imageHeight - (margin * 1.8),
+            fontSize: 15,
+            color: slide.contentColor || "#333333",
+            fontFace: "Arial",
+            lineSpacing: 26,
+            align: "left"
+        });
+
+        slidePpt.addImage({
+            path: slide.image,
+            x: slideWidth - imageWidth,
+            y: 0,
+            w: imageWidth,
+            h: imageHeight
+        });
+    } else {
+        slidePpt.addText(formattedContent, {
+            x: 0.5, y: 1.5, w: "95%", h: 3.5,
+            fontSize: 20,
+            color: slide.contentColor || "#333333",
+            fontFace: "Arial",
+            lineSpacing: 28,
+            align: "left"
+        });
     }
 });
-  
-       if (slide.image) {  
-    const imageWidth = 3;  
-    const imageHeight = 5.58; // Full height  
-    const slideWidth = 10; // Default width  
-    const margin = 0.5;  
-    const textWidth = slideWidth - imageWidth - (margin * 2); // Remaining width after image and margins  
-  
-    slidePpt.addText(formattedContent, {  
-        x: margin,  
-        y: margin,  
-        w: textWidth,  
-        h: imageHeight - (margin * 1.8),  
-        fontSize: 15,  
-        color: slide.contentColor || "#333333",  
-        fontFace: "Arial",  
-        lineSpacing: 26,  
-        align: "left"  
-    });  
-  
-    slidePpt.addImage({  
-        path: slide.image,  
-        x: slideWidth - imageWidth,  
-        y: 0,  
-        w: imageWidth,  
-        h: imageHeight  
-    });  
-} else {  
-    slidePpt.addText(formattedContent, {  
-        x: 0.5, y: 1.5, w: "95%", h: 3.5,  
-        fontSize: 20,  
-        color: slide.contentColor || "#333333",  
-        fontFace: "Arial",  
-        lineSpacing: 28,  
-        align: "left"  
-    });  
-}  
-    });    
   
     const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;    
     const pptFilePath = path.join("/tmp", pptFileName);    
