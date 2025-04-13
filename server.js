@@ -297,7 +297,7 @@ app.post("/generate-ppt", async (req, res) => {
         return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
     }
 
-    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js"].some(lang =>
+    const isCodingTopic = ["Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js","PHP"].some(lang =>
         topic.toLowerCase().includes(lang.toLowerCase())
     );
 
@@ -323,7 +323,7 @@ Slide 2: Hello World Example
 
 - A simple program to print "Hello, World!" in ${topic}.
 
-\`\`\`${topic.toLowerCase()}
+\`\`\`${topic.toLowerCase()} program
 public class Main {
     public static void main(String[] args) {
         System.out.println("Hello, World!");
@@ -338,7 +338,8 @@ Generate a structured PowerPoint presentation on "${topic}" with exactly ${slide
 Slide Structure:
 
 1. Slide Title: Format as "Slide X: Title".
-2. Content: Provide **exactly 4 to 5 bullet points** explaining key concepts in simple terms. Every slide must have at least 4 points.
+2. Content: Provide **exactly 4   
+bullet points** explaining key concepts in simple terms. Every slide must have at least 4 points.
 
 Ensure that the number of points remains consistent across all slides, even if there are more than 14 slides.
 
