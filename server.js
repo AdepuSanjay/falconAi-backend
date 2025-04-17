@@ -184,7 +184,7 @@ if (!fs.existsSync(jsonPath)) {
     if (slide.theme?.startsWith("http")) {
         slidePpt.background = { path: slide.theme };
     } else {
-        slidePpt.background = { color: slide.theme || "#dde6ed" };
+        slidePpt.background = { color: slide.theme || "#FFFFFF" };
     }
 
     slidePpt.addText(slide.title, {
