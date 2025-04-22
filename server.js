@@ -10,7 +10,7 @@ const Razorpay = require('razorpay');
 
 const app = express();
 app.use(cors({
-  origin: ["https://www.falconai.space", "http://localhost:5173"],
+  origin: ["https://www.falconai.space", "http://localhost:5173","https://adepu-sanjay.vercel.app"],
   methods: ["GET", "POST"]
 }));
 app.use(express.json());
