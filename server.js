@@ -208,7 +208,7 @@ if (!fs.existsSync(jsonPath)) {
 
     if (slide.image) {
         const imageWidth = 3;
-        const imageHeight = 5.65;
+        const imageHeight = 5.62;
         const slideWidth = 10;
         const margin = 0.5;
         const textWidth = slideWidth - imageWidth - (margin * 2);
