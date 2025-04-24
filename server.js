@@ -344,7 +344,7 @@ function parseGeminiResponse(responseText) {
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
 
-
+ 
 
 
 // Generate PPT using AI
