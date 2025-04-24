@@ -367,19 +367,16 @@ Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} sli
 Slide Structure:
 
 1. Slide Title: Format as "Slide X: Title".
-2. Explanation: Provide clear, structured bullet points.
-3. Code Snippets: Format code properly using "${topic.toLowerCase()}" syntax.
+2. Explanation: Use clear, structured bullet points (max 3 per slide).
+3. Code Snippets: Include only one **small** example per slide, not exceeding 4 lines.
 
 Example:
 
-Slide 1: Introduction to ${topic}
-
-- ${topic} is a widely used programming language.
-- It is used in web development, automation, and AI.
-
 Slide 2: Hello World Example
 
-- A simple program to print "Hello, World!" in ${topic}.
+- Basic syntax of ${topic}.
+- How to print output.
+- Entry point of the program.
 
 \`\`\`${topic.toLowerCase()} program
 public class Main {
