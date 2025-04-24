@@ -301,8 +301,6 @@ if (!fs.existsSync(jsonPath)) {
 
 
 // Parse AI response
-
-
 function parseGeminiResponse(responseText) {
     const slides = [];
     const slideSections = responseText.split("Slide ");
@@ -311,17 +309,39 @@ function parseGeminiResponse(responseText) {
         const match = section.match(/^(\d+):\s*(.+)/);
         if (match) {
             const title = match[2].trim();
-            const contentLines = section.split("\n").slice(1).map(line => line.trim()).filter(line => line);
-            const formattedContent = contentLines.map(line =>
-                line.includes("```") ? line.replace(/```/g, "\\`\\`\\`") : line
-            );
+            const lines = section.split("\n").slice(1).map(line => line.trim());
+            const content = [];
 
-            slides.push({ title, content: formattedContent });
+            let isCodeBlock = false;
+            let codeBuffer = "";
+
+            lines.forEach(line => {
+                if (line.startsWith("```")) {
+                    if (!isCodeBlock) {
+                        isCodeBlock = true;
+                        codeBuffer = line + "\n";
+                    } else {
+                        codeBuffer += line;
+                        content.push(codeBuffer.replace(/```/g, "\\`\\`\\`").trim());
+                        codeBuffer = "";
+                        isCodeBlock = false;
+                    }
+                } else if (isCodeBlock) {
+                    codeBuffer += line + "\n";
+                } else if (line) {
+                    content.push(line);
+                }
+            });
+
+            slides.push({ title, content });
         }
     });
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
+
+
+
 
 // Generate PPT using AI
 app.post("/generate-ppt", async (req, res) => {
