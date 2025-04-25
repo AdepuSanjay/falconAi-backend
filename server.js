@@ -327,7 +327,7 @@ function parseGeminiResponse(responseText) {
                         codeBuffer = "";  // Start capturing code
                     } else {
                         // End of code block, add the code in the desired format without language hint
-                        content.push(`Code  : \\`\\`\\`\n${codeBuffer.trim()}\\n\\`\\`\\``);
+                        content.push(`Code  : \`\`\`\n${codeBuffer.trim()}\n\`\`\``);
                         codeBuffer = "";
                         isCodeBlock = false;
                     }
@@ -350,7 +350,6 @@ function parseGeminiResponse(responseText) {
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
-
 
 // Generate PPT using AI
 app.post("/generate-ppt", async (req, res) => {
