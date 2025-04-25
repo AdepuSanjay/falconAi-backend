@@ -323,16 +323,23 @@ function parseGeminiResponse(responseText) {
                 if (line.startsWith("```")) {
                     if (!isCodeBlock) {
                         isCodeBlock = true;
-                        codeBuffer = "";
+                        codeBuffer = line + "\n";
                     } else {
-                        isCodeBlock = false;
-                        content.push({ type: "code", text: codeBuffer.trim() });
+                        codeBuffer += line;
+                        content.push({
+                            type: "code",
+                            content: codeBuffer.replace(/```/g, "\\`\\`\\`").trim()
+                        });
                         codeBuffer = "";
+                        isCodeBlock = false;
                     }
                 } else if (isCodeBlock) {
                     codeBuffer += line + "\n";
                 } else if (line) {
-                    content.push({ type: "text", text: line });
+                    content.push({
+                        type: "text",
+                        content: line
+                    });
                 }
             });
 
@@ -342,6 +349,8 @@ function parseGeminiResponse(responseText) {
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
+
+
 
 
 // Generate PPT using AI
