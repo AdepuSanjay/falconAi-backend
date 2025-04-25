@@ -306,48 +306,42 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
 // Parse AI response
 function parseGeminiResponse(responseText) {
-    const slides = [];
-    const slideSections = responseText.split("Slide ");
+  const slides = [];
+  const slideSections = responseText.split("Slide ");
 
-    slideSections.forEach((section) => {
-        const match = section.match(/^(\d+):\s*(.+)/);
-        if (match) {
-            const title = match[2].trim();
-            const lines = section.split("\n").slice(1).map(line => line.trim());
-            const content = [];
+  slideSections.forEach((section) => {
+    const match = section.match(/^(\d+):\s*(.+)/);
+    if (match) {
+      const title = match[2].trim();
+      const lines = section.split("\n").slice(1).map(line => line.trim());
+      const content = [];
 
-            let isCodeBlock = false;
-            let codeBuffer = "";
+      let isCodeBlock = false;
+      let codeBuffer = "";
 
-            lines.forEach(line => {
-                if (line.startsWith("```")) {
-                    if (!isCodeBlock) {
-                        isCodeBlock = true;
-                        codeBuffer = line + "\n";
-                    } else {
-                        codeBuffer += line;
-                        content.push({
-                            type: "code",
-                            content: codeBuffer.replace(/```/g, "\\`\\`\\`").trim()
-                        });
-                        codeBuffer = "";
-                        isCodeBlock = false;
-                    }
-                } else if (isCodeBlock) {
-                    codeBuffer += line + "\n";
-                } else if (line) {
-                    content.push({
-                        type: "text",
-                        content: line
-                    });
-                }
-            });
-
-            slides.push({ title, content });
+      lines.forEach(line => {
+        if (line.startsWith("```")) {
+          if (!isCodeBlock) {
+            isCodeBlock = true;
+            codeBuffer = ""; // Reset buffer, don't include the opening ```
+          } else {
+            // Closing ```
+            content.push({ type: "code", content: codeBuffer.trim() });
+            codeBuffer = "";
+            isCodeBlock = false;
+          }
+        } else if (isCodeBlock) {
+          codeBuffer += line + "\n";
+        } else if (line) {
+          content.push({ type: "text", content: line });
         }
-    });
+      });
 
-    return slides.length ? { slides } : { error: "Invalid AI response format" };
+      slides.push({ title, content });
+    }
+  });
+
+  return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
 
 
