@@ -233,41 +233,34 @@ app.get("/download-ppt/:topic", async (req, res) => {
         fontFace: "Arial Black",
       });
 
-      let formattedContent = [];
+    let formattedContent = [];
 
 slide.content.forEach((point) => {
   if (point.startsWith("Code  :")) {
-    const codeText = point.replace("Code  :", "").trim();
-
-    slidePpt.addText(codeText, {
-      x: 1.3,
-      y: 3.2,
-      w: "85%",
-      h: 2.2,
-      fontSize: 14,
-      fontFace: "Courier New",
-      color: "#222222",
-      align: "left",
-      lineSpacing: 20,
-      fill: { color: "F4F4F4" },
-      shape: pptx.ShapeType.rect,
-      margin: 0.2,
-      border: { color: "#CCCCCC", pt: 1 },
+    const codeBlock = point.replace("Code  :", "").trim();
+    formattedContent.push({
+      text: `${codeBlock}\n`,
+      options: {
+         x:1.3,
+         y:3.2,
+        fontFace: "Courier New",
+        fontSize: 14,
+        color: slide.contentColor || "#333333",
+        breakLine: true,
+      },
     });
   } else {
-    slidePpt.addText(`🔹 ${point}`, {
-      x: 0.5,
-      y: 1.5,
-      w: "90%",
-      fontSize: 18,
-      fontFace: "Arial",
-      color: slide.contentColor || "#333333",
-      align: "left",
-      lineSpacing: 26,
+    formattedContent.push({
+      text: `🔹 ${point}\n`,
+      options: {
+        fontSize: 18,
+        color: slide.contentColor || "#333333",
+      },
     });
   }
 });
-      if (slide.image) {
+
+   if (slide.image) {
         const imageWidth = 3;
         const imageHeight = 5.62;
         const slideWidth = 10;
