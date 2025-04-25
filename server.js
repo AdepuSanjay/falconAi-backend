@@ -199,6 +199,117 @@ if (!topic) {
 
 
 // Download PPT  
+app.get("/download-ppt/:topic", async (req, res) => {
+  try {
+    const topic = req.params.topic;
+    const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
+
+    if (!fs.existsSync(jsonPath)) {
+      return res.status(404).json({ error: "No slides found for this topic" });
+    }
+
+    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    let pptx = new PptxGenJS();
+
+    slides.forEach((slide) => {
+      let slidePpt = pptx.addSlide();
+
+      // Set background
+      if (slide.theme?.startsWith("http")) {
+        slidePpt.background = { path: slide.theme };
+      } else {
+        slidePpt.background = { color: slide.theme || "#FFFFFF" };
+      }
+
+      // Add title
+      slidePpt.addText(slide.title, {
+        x: 0.5,
+        y: 0.5,
+        w: "80%",
+        fontSize: 23,
+        bold: true,
+        color: slide.titleColor || "#D63384",
+        align: "left",
+        fontFace: "Arial Black",
+      });
+
+      // Separate bullet points and code blocks
+      let bulletPoints = "";
+      let codeBlocks = [];
+
+      slide.content.forEach((point) => {
+        if (point.startsWith("Code  :")) {
+          const codeBlock = point.replace("Code  :", "").trim();
+          codeBlocks.push(codeBlock);
+        } else {
+          bulletPoints += `🔹 ${point}\n`;
+        }
+      });
+
+      const hasImage = !!slide.image;
+      const imageWidth = 3;
+      const imageHeight = 5.62;
+      const slideWidth = 10;
+      const margin = 0.5;
+      const textWidth = slideWidth - imageWidth - margin * 2;
+
+      // Add bullet points
+      slidePpt.addText(bulletPoints, {
+        x: hasImage ? margin : 0.5,
+        y: hasImage ? margin : 1.5,
+        w: hasImage ? textWidth : "95%",
+        h: hasImage ? imageHeight - margin * 1.8 : 3.5,
+        fontSize: 20,
+        color: slide.contentColor || "#333333",
+        fontFace: "Arial",
+        lineSpacing: 28,
+        align: "left",
+      });
+
+      // Add code blocks one by one
+      codeBlocks.forEach((code, index) => {
+        slidePpt.addText(code, {
+          x: hasImage ? 1.3 : 0.7,
+          y: hasImage ? 3.2 + index * 1.5 : 4.2 + index * 1.5,
+          w: "90%",
+          h: 1.5,
+          fontFace: "Courier New",
+          fontSize: 14,
+          color: slide.contentColor || "#333333",
+          align: "left",
+        });
+      });
+
+      // Add image (if exists)
+      if (slide.image) {
+        slidePpt.addImage({
+          path: slide.image,
+          x: slideWidth - imageWidth,
+          y: 0,
+          w: imageWidth,
+          h: imageHeight,
+        });
+      }
+    });
+
+    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;
+    const pptFilePath = path.join("/tmp", pptFileName);
+
+    await pptx.writeFile({ fileName: pptFilePath });
+
+    res.download(pptFilePath, pptFileName, (err) => {
+      if (err) {
+        console.error("Error downloading PPT:", err.message);
+        res.status(500).json({ error: "Failed to download PPT" });
+      }
+    });
+  } catch (error) {
+    console.error("Error generating PPT:", error.message);
+    res.status(500).json({ error: "Failed to generate PPT" });
+  }
+});
+
+
 
 
 app.get("/download-ppt/:topic", async (req, res) => {
