@@ -320,32 +320,36 @@ function parseGeminiResponse(responseText) {
             let codeBuffer = "";
 
             lines.forEach(line => {
+                // Check for the start and end of code blocks
                 if (line.startsWith("```")) {
                     if (!isCodeBlock) {
                         isCodeBlock = true;
-                        codeBuffer = line + "\n";
+                        codeBuffer = "";  // Start capturing code
                     } else {
-                        codeBuffer += line;
-                        content.push(codeBuffer.replace(/```/g, "\\`\\`\\`").trim());
+                        // End of code block, add the code in the desired format without language hint
+                        content.push(`Code  : \\`\\`\\`\n${codeBuffer.trim()}\\n\\`\\`\\``);
                         codeBuffer = "";
                         isCodeBlock = false;
                     }
                 } else if (isCodeBlock) {
+                    // Add code lines inside the buffer while inside a code block
                     codeBuffer += line + "\n";
                 } else if (line) {
-                    content.push(line);
+                    // Regular content line, add with '- '
+                    content.push(`- ${line}`);
                 }
             });
 
-            slides.push({ title, content });
+            // Wrap title with asterisks (if required)
+            slides.push({ 
+                title: `${title}**`, 
+                content: content
+            });
         }
     });
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
-
-
-
 
 
 // Generate PPT using AI
