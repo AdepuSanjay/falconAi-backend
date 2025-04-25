@@ -233,17 +233,30 @@ app.get("/download-ppt/:topic", async (req, res) => {
         fontFace: "Arial Black",
       });
 
-      let formattedContent = slide.content.flatMap((point) => {
-        if (point.includes(":")) {
-          const [label, rest] = point.split(/:(.*)/);
-          return [
-            { text: `🔹 ${label.trim()}: `, options: { bold: true } },
-            { text: `${rest.trim()}\n` },
-          ];
-        } else {
-          return [{ text: `🔹 ${point}\n` }];
-        }
-      });
+      let formattedContent = [];
+
+slide.content.forEach((point) => {
+  if (point.startsWith("Code  :")) {
+    const codeBlock = point.replace("Code  :", "").trim();
+    formattedContent.push({
+      text: `${codeBlock}\n`,
+      options: {
+        fontFace: "Courier New",
+        fontSize: 14,
+        color: slide.contentColor || "#333333",
+        breakLine: true,
+      },
+    });
+  } else {
+    formattedContent.push({
+      text: `🔹 ${point}\n`,
+      options: {
+        fontSize: 18,
+        color: slide.contentColor || "#333333",
+      },
+    });
+  }
+});
 
       if (slide.image) {
         const imageWidth = 3;
