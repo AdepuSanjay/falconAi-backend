@@ -197,6 +197,7 @@ if (!topic) {
 
 
 
+
 app.get("/download-ppt/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
@@ -212,14 +213,14 @@ app.get("/download-ppt/:topic", async (req, res) => {
     slides.forEach((slide) => {
       let slidePpt = pptx.addSlide();
 
-      // Set background
+      // Set background (image URL or color)
       if (slide.theme?.startsWith("http")) {
         slidePpt.background = { path: slide.theme };
       } else {
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
       }
 
-      // Add title
+      // Add slide title
       slidePpt.addText(slide.title, {
         x: 0.5,
         y: 0.5,
@@ -231,35 +232,36 @@ app.get("/download-ppt/:topic", async (req, res) => {
         fontFace: "Arial Black",
       });
 
-      // Combine bullet points and code blocks
+      // Format content: bullet points and code blocks
       let formattedContent = slide.content.map((point) => {
-  if (point.startsWith("Code  :")) {
-    return {
-      text: `${point.replace("Code  :", "").trim()}\n`,
-      options: {
-        fontSize: 16,
-        color: slide.contentColor || "#333333",
-        indentLevel: 2,
-        bullet: false, // <-- Code blocks are NOT bullets
-      }
-    };
-  } else {
-    return {
-      text: `🔹 ${point}\n`,
-      options: {
-        fontSize: 20,
-        bold: false,
-        color: slide.contentColor || "#333333",
-        indentLevel: 0,
-        bullet: true, // <-- Normal points ARE bullets
-      }
-    };
-  }
-});
+        if (point.startsWith("Code  :")) {
+          return {
+            text: `${point.replace("Code  :", "").trim()}\n`,
+            options: {
+              fontSize: 16,
+              color: slide.contentColor || "#333333",
+              bullet: false,
+              indentLevel: 2,
+              fontFace: "Courier New", // Optional: to make code look like code
+            }
+          };
+        } else {
+          return {
+            text: `• ${point.trim()}\n`, // normal bullet point
+            options: {
+              fontSize: 20,
+              bold: false,
+              color: slide.contentColor || "#333333",
+              bullet: true,
+              bulletChar: "•", // neat bullet symbol
+              indentLevel: 0,
+              fontFace: "Arial",
+            }
+          };
+        }
+      });
 
-
-
-  // Handle with/without image
+      // Add content with or without image
       if (slide.image) {
         const imageWidth = 3;
         const imageHeight = 5.62;
@@ -271,9 +273,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
           x: margin,
           y: margin,
           w: textWidth,
-          h: imageHeight - (margin * 1.8),
-          fontSize: 18,
-          fontFace: "Arial",
+          h: imageHeight - margin * 1.8,
           lineSpacing: 26,
           align: "left",
         });
@@ -291,8 +291,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
           y: 1.5,
           w: "95%",
           h: 4,
-          fontSize: 20,
-          fontFace: "Arial",
           lineSpacing: 28,
           align: "left",
         });
@@ -316,6 +314,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
     res.status(500).json({ error: "Failed to generate PPT" });
   }
 });
+
 
 
 
