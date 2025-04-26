@@ -240,6 +240,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
         fontSize: 16,
         color: slide.contentColor || "#333333",
         indentLevel: 2,
+        bullet: false, // <-- Code blocks are NOT bullets
       }
     };
   } else {
@@ -250,11 +251,15 @@ app.get("/download-ppt/:topic", async (req, res) => {
         bold: false,
         color: slide.contentColor || "#333333",
         indentLevel: 0,
+        bullet: true, // <-- Normal points ARE bullets
       }
     };
   }
 });
-      // Handle with/without image
+
+
+
+  // Handle with/without image
       if (slide.image) {
         const imageWidth = 3;
         const imageHeight = 5.62;
