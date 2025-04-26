@@ -197,8 +197,6 @@ if (!topic) {
 
 
 
-
-
 app.get("/download-ppt/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
@@ -214,7 +212,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
     slides.forEach((slide) => {
       let slidePpt = pptx.addSlide();
 
-      // Set background
+      // Set background (image or color)
       if (slide.theme?.startsWith("http")) {
         slidePpt.background = { path: slide.theme };
       } else {
@@ -223,54 +221,42 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
       // Add title
       slidePpt.addText(slide.title, {
-        x: 0.5,
-        y: 0.5,
-        w: "80%",
-        fontSize: 23,
-        bold: true,
+        x: 0.5, y: 0.5, w: "80%",
+        fontSize: 23, bold: true,
         color: slide.titleColor || "#D63384",
-        align: "left",
-        fontFace: "Arial Black",
+        align: "left", fontFace: "Arial Black"
       });
 
-      // Combine bullet points and code blocks
-      let formattedContent = slide.content.flatMap((point) => {
-        if (point.startsWith("Code  :")) {
-          // Code block style (no background, normal font, a little indentation)
+      // Format content with bold label before ":"
+      let formattedContent = slide.content.flatMap(point => {
+        if (point.includes(":")) {
+          const [label, rest] = point.split(/:(.*)/);
           return [
-            {
-              text: `${point.replace("Code  :", "").trim()}\n`,
-              options: { fontSize: 16, color: slide.contentColor || "#333333" }
-            }
+            { text: `🔹 ${label.trim()}: `, options: { bold: true } },
+            { text: `${rest.trim()}\n` }
           ];
         } else {
-          // Normal bullet point style
-          return [
-            {
-              text: `🔹 ${point}\n`,
-              options: { fontSize: 20, bold: false, color: slide.contentColor || "#333333" }
-            }
-          ];
+          return [{ text: `🔹 ${point}\n` }];
         }
       });
 
-      // Handle with/without image
       if (slide.image) {
         const imageWidth = 3;
         const imageHeight = 5.62;
         const slideWidth = 10;
         const margin = 0.5;
-        const textWidth = slideWidth - imageWidth - margin * 2;
+        const textWidth = slideWidth - imageWidth - (margin * 2);
 
         slidePpt.addText(formattedContent, {
-          x: margin,
+          x: margin + 0.625, // Shifted 60px right
           y: margin,
           w: textWidth,
           h: imageHeight - (margin * 1.8),
-          fontSize: 18,
+          fontSize: 15,
+          color: slide.contentColor || "#333333",
           fontFace: "Arial",
           lineSpacing: 26,
-          align: "left",
+          align: "left"
         });
 
         slidePpt.addImage({
@@ -278,18 +264,19 @@ app.get("/download-ppt/:topic", async (req, res) => {
           x: slideWidth - imageWidth,
           y: 0,
           w: imageWidth,
-          h: imageHeight,
+          h: imageHeight
         });
       } else {
         slidePpt.addText(formattedContent, {
-          x: 0.5,
+          x: 0.5 + 0.625, // Shifted 60px right
           y: 1.5,
           w: "95%",
-          h: 4,
+          h: 3.5,
           fontSize: 20,
+          color: slide.contentColor || "#333333",
           fontFace: "Arial",
           lineSpacing: 28,
-          align: "left",
+          align: "left"
         });
       }
     });
