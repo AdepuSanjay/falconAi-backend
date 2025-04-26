@@ -301,9 +301,6 @@ res.status(500).json({ error: "Failed to generate PPT" });
 
 
 
-
-
-
 // Parse AI response
 function parseGeminiResponse(responseText) {
     const slides = [];
@@ -312,27 +309,18 @@ function parseGeminiResponse(responseText) {
     slideSections.forEach((section) => {
         const match = section.match(/^(\d+):\s*(.+)/);
         if (match) {
-            const title = match[2].trim();
+            const title = match[2].replace(/\*\*/g, "").trim();
             const lines = section.split("\n").slice(1).map(line => line.trim());
             const content = [];
 
             let isCodeBlock = false;
-            let codeBuffer = "";
 
             lines.forEach(line => {
                 if (line.startsWith("```")) {
-                    if (!isCodeBlock) {
-                        isCodeBlock = true;
-                        codeBuffer = line + "\n";
-                    } else {
-                        codeBuffer += line;
-                        content.push(codeBuffer.replace(/```/g, "\\`\\`\\`").trim());
-                        codeBuffer = "";
-                        isCodeBlock = false;
-                    }
+                    isCodeBlock = !isCodeBlock; // Toggle code block state
                 } else if (isCodeBlock) {
-                    codeBuffer += line + "\n";
-                } else if (line) {
+                    if (line) content.push(line); // Add each code line separately
+                } else if (line && line !== "**") {
                     content.push(line);
                 }
             });
@@ -343,9 +331,6 @@ function parseGeminiResponse(responseText) {
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
-
-
-
 
 
 
