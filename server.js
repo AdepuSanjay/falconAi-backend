@@ -198,104 +198,108 @@ if (!topic) {
 
 
 
+
 app.get("/download-ppt/:topic", async (req, res) => {
-  try {
-    const topic = req.params.topic;
-    const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
+try {
+const topic = req.params.topic;
+const jsonPath = path.join("/tmp", `${topic.replace(/\s/g, "_")}.json`);
 
-    if (!fs.existsSync(jsonPath)) {
-      return res.status(404).json({ error: "No slides found for this topic" });
-    }
 
-    const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
-    let pptx = new PptxGenJS();
+if (!fs.existsSync(jsonPath)) {
+return res.status(404).json({ error: "No slides found for this topic" });
+}
 
-    slides.forEach((slide) => {
-  let slidePpt = pptx.addSlide();
+const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));    
+let pptx = new PptxGenJS();    
 
-  // Set background
-  if (slide.theme?.startsWith("http")) {
+slides.forEach((slide) => {
+let slidePpt = pptx.addSlide();
+
+// Support image or color theme backgrounds
+if (slide.theme?.startsWith("http")) {
     slidePpt.background = { path: slide.theme };
-  } else {
+} else {
     slidePpt.background = { color: slide.theme || "#FFFFFF" };
-  }
+}
 
-  // Add title
-  slidePpt.addText(slide.title, {
-    x: 0.5,
-    y: 0.5,
-    w: "80%",
-    fontSize: 23,
-    bold: true,
+slidePpt.addText(slide.title, {
+    x: 0.5, y: 0.5, w: "80%",
+    fontSize: 23, bold: true,
     color: slide.titleColor || "#D63384",
-    align: "left",
-    fontFace: "Arial Black",
-  });
+    align: "left", fontFace: "Arial Black"
+});
 
-  // Start content lower to avoid overlapping title
-  let currentY = 1;
+let formattedContent = slide.content.flatMap(point => {
+    if (point.includes(":")) {
+        const [label, rest] = point.split(/:(.*)/);
+        return [
+            { text: `🔹 ${label.trim()}: `, options: { bold: true } },
+            { text: `${rest.trim()}\n` }
+        ];
+    } else {
+        return [{ text: `🔹 ${point}\n` }];
+    }
+});
 
-  // Handle with/without image
-  if (slide.image) {
+if (slide.image) {
     const imageWidth = 3;
     const imageHeight = 5.62;
     const slideWidth = 10;
     const margin = 0.5;
-    const textWidth = slideWidth - imageWidth - margin * 2;
+    const textWidth = slideWidth - imageWidth - (margin * 2);
+
+    slidePpt.addText(formattedContent, {
+        x: margin,
+        y: margin,
+        w: textWidth,
+        h: imageHeight - (margin * 1.8),
+        fontSize: 15,
+        color: slide.contentColor || "#333333",
+        fontFace: "Arial",
+        lineSpacing: 26,
+        align: "left"
+    });
 
     slidePpt.addImage({
-      path: slide.image,
-      x: slideWidth - imageWidth,
-      y: 0,
-      w: imageWidth,
-      h: imageHeight,
+        path: slide.image,
+        x: slideWidth - imageWidth,
+        y: 0,
+        w: imageWidth,
+        h: imageHeight
     });
-  }
-
-  // Now loop each content point
-  slide.content.forEach((point) => {
-    const isCodeBlock = point.startsWith("Code  :");
-
-    let textToAdd = isCodeBlock
-      ? point.replace("Code  :", "").trim()
-      : `🔹 ${point}`;
-
-    slidePpt.addText(textToAdd, {
-      x: isCodeBlock ? 1.5 : 0,  // code moves right more
-      y: currentY,
-      w: "80%",
-      fontSize: isCodeBlock ? 13: 20,
-      color: slide.contentColor || "#333333",
-      fontFace: "Courier New",    // nice monospaced font for code
-      bold: isCodeBlock ? true : false,
-      bullet: !isCodeBlock,
-      lineSpacing: 24,
-      align: "left",
+} else {
+    slidePpt.addText(formattedContent, {
+        x: 0.5, y: 1.5, w: "95%", h: 3.5,
+        fontSize: 20,
+        color: slide.contentColor || "#333333",
+        fontFace: "Arial",
+        lineSpacing: 28,
+        align: "left"
     });
+}
 
-    // Adjust Y for next point
-    currentY += isCodeBlock ? 0.6 : 0.4;
-  });
+});
+
+const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;    
+const pptFilePath = path.join("/tmp", pptFileName);    
+
+await pptx.writeFile({ fileName: pptFilePath });    
+
+res.download(pptFilePath, pptFileName, (err) => {    
+    if (err) {    
+        console.error("Error downloading PPT:", err.message);    
+        res.status(500).json({ error: "Failed to download PPT" });    
+    }    
+});
+
+} catch (error) {
+console.error("Error generating PPT:", error.message);
+res.status(500).json({ error: "Failed to generate PPT" });
+}
+
 });
 
 
-    const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;
-    const pptFilePath = path.join("/tmp", pptFileName);
-
-    await pptx.writeFile({ fileName: pptFilePath });
-
-    res.download(pptFilePath, pptFileName, (err) => {
-      if (err) {
-        console.error("Error downloading PPT:", err.message);
-        res.status(500).json({ error: "Failed to download PPT" });
-      }
-    });
-
-  } catch (error) {
-    console.error("Error generating PPT:", error.message);
-    res.status(500).json({ error: "Failed to generate PPT" });
-  }
-});
 
 
 
@@ -316,36 +320,34 @@ function parseGeminiResponse(responseText) {
             let codeBuffer = "";
 
             lines.forEach(line => {
-                // Check for the start and end of code blocks
                 if (line.startsWith("```")) {
                     if (!isCodeBlock) {
                         isCodeBlock = true;
-                        codeBuffer = "";  // Start capturing code
+                        codeBuffer = line + "\n";
                     } else {
-                        // End of code block, add the code in the desired format without language hint
-                        content.push(`Code  : \`\`\`\n${codeBuffer.trim()}\n\`\`\``);
+                        codeBuffer += line;
+                        content.push(codeBuffer.replace(/```/g, "\\`\\`\\`").trim());
                         codeBuffer = "";
                         isCodeBlock = false;
                     }
                 } else if (isCodeBlock) {
-                    // Add code lines inside the buffer while inside a code block
                     codeBuffer += line + "\n";
                 } else if (line) {
-                    // Regular content line, add with '- '
-                    content.push(`- ${line}`);
+                    content.push(line);
                 }
             });
 
-            // Wrap title with asterisks (if required)
-            slides.push({ 
-                title: `${title}**`, 
-                content: content
-            });
+            slides.push({ title, content });
         }
     });
 
     return slides.length ? { slides } : { error: "Invalid AI response format" };
 }
+
+
+
+
+
 
 // Generate PPT using AI
 app.post("/generate-ppt", async (req, res) => {
