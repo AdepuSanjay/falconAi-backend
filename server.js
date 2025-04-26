@@ -212,92 +212,86 @@ app.get("/download-ppt/:topic", async (req, res) => {
     slides.forEach((slide) => {
       let slidePpt = pptx.addSlide();
 
-      // Background
+      // Set background
       if (slide.theme?.startsWith("http")) {
         slidePpt.background = { path: slide.theme };
       } else {
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
       }
 
-      // Title
+      // Add title
       slidePpt.addText(slide.title, {
         x: 0.5,
-        y: 0.3,
+        y: 0.5,
         w: "90%",
-        fontSize: 26,
+        fontSize: 23,
         bold: true,
         color: slide.titleColor || "#D63384",
         align: "left",
         fontFace: "Arial Black",
       });
 
-      // Separate bullets and code
-      let bulletPoints = [];
+      // Separate bullet points and code blocks
+      let bulletPoints = "";
       let codeBlocks = [];
 
       slide.content.forEach((point) => {
-        if (point.trim().startsWith("Code  :")) {
-          codeBlocks.push(point.replace("Code  :", "").trim());
+        if (point.startsWith("Code  :")) {
+          const codeBlock = point.replace("Code  :", "").trim();
+          codeBlocks.push(codeBlock);
         } else {
-          bulletPoints.push(point.trim());
+          bulletPoints += `• ${point}\n`;  // normal bullet point
         }
       });
 
       const hasImage = !!slide.image;
-      const margin = 0.5;
-      const slideWidth = 10;
-      const slideHeight = 5.62;
       const imageWidth = 3;
-      const textAreaWidth = hasImage ? slideWidth - imageWidth - margin * 3 : 9;
+      const imageHeight = 5.62;
+      const slideWidth = 10;
+      const margin = 0.5;
+      const textWidth = slideWidth - imageWidth - margin * 2;
 
-      let currentY = 1.3;
+      let bulletY = hasImage ? margin : 1.5;
 
-      // Bullet Points
-      if (bulletPoints.length > 0) {
-        slidePpt.addText(
-          bulletPoints.map((bp) => `• ${bp}`).join("\n"),
-          {
-            x: margin,
-            y: currentY,
-            w: textAreaWidth,
-            h: 3,
-            fontSize: 20,
-            color: slide.contentColor || "#000000",
-            fontFace: "Arial",
-            align: "left",
-            lineSpacing: 28,
-          }
-        );
-        currentY += 3.2;
-      }
+      // Add bullet points first
+      slidePpt.addText(bulletPoints, {
+        x: hasImage ? margin : 0.5,
+        y: bulletY,
+        w: hasImage ? textWidth : "90%",
+        h: hasImage ? 3.5 : 3,
+        fontSize: 20,
+        color: slide.contentColor || "#333333",
+        fontFace: "Arial",
+        align: "left",
+        lineSpacing: 28,
+      });
 
-      // Code Blocks (shifted right, top adjusted)
-      if (codeBlocks.length > 0) {
-        codeBlocks.forEach((code, idx) => {
-          slidePpt.addText(code, {
-            x: margin + 0.5, // Move right by 0.5
-            y: currentY + idx * 1.5, // Small gap between multiple code blocks
-            w: 8, // Limited width (not full width)
-            h: 1.5,
-            fontFace: "Courier New",
-            fontSize: 16,
-            color: "#FF5722",
-            align: "left",
-            fill: { color: "F1F1F1" }, // Light grey background
-            margin: 0.2,
-            valign: "top", // Text starts from top
-          });
+      // Then add code blocks normally, NO background, NO font change
+      let codeY = bulletY + (hasImage ? 3.8 : 3.2); // adjust based on bullet height
+
+      codeBlocks.forEach((code) => {
+        slidePpt.addText(code, {
+          x: hasImage ? margin : 0.7,
+          y: codeY,
+          w: hasImage ? textWidth : "90%",
+          h: 2,
+          fontSize: 16,
+          color: slide.contentColor || "#333333",
+          fontFace: "Arial",   // same font as normal text
+          align: "left",
+          lineSpacing: 24,
         });
-      }
+        codeY += 2.2; // space between multiple code blocks if any
+      });
 
-      // Optional Image
-      if (hasImage) {
+      // Add image if available
+      if (slide.image) {
         slidePpt.addImage({
           path: slide.image,
           x: slideWidth - imageWidth,
           y: 0,
           w: imageWidth,
-          h: slideHeight,
+          h: imageHeight,
         });
       }
     });
