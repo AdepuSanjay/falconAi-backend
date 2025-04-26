@@ -233,7 +233,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
   });
 
   // Start content lower to avoid overlapping title
-  let currentY = 1.5;
+  let currentY = 1;
 
   // Handle with/without image
   if (slide.image) {
@@ -261,10 +261,10 @@ app.get("/download-ppt/:topic", async (req, res) => {
       : `🔹 ${point}`;
 
     slidePpt.addText(textToAdd, {
-      x: isCodeBlock ? 1.0 : 0,  // code moves right more
+      x: isCodeBlock ? 1.5 : 0,  // code moves right more
       y: currentY,
       w: "80%",
-      fontSize: isCodeBlock ? 14 : 20,
+      fontSize: isCodeBlock ? 13: 20,
       color: slide.contentColor || "#333333",
       fontFace: "Courier New",    // nice monospaced font for code
       bold: isCodeBlock ? true : false,
@@ -274,7 +274,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
     });
 
     // Adjust Y for next point
-    currentY += isCodeBlock ? 1.2 : 0.8;
+    currentY += isCodeBlock ? 0.6 : 0.4;
   });
 });
 
