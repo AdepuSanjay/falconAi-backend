@@ -300,7 +300,6 @@ res.status(500).json({ error: "Failed to generate PPT" });
 });
 
 
-
 // Parse AI response
 function parseGeminiResponse(responseText) {
     const slides = [];
@@ -319,9 +318,10 @@ function parseGeminiResponse(responseText) {
                 if (line.startsWith("```")) {
                     isCodeBlock = !isCodeBlock; // Toggle code block state
                 } else if (isCodeBlock) {
-                    if (line) content.push(line); // Add each code line separately
+                    if (line) content.push(line); // Keep code lines as they are
                 } else if (line && line !== "**") {
-                    content.push(line);
+                    // Remove leading "- " if exists
+                    content.push(line.replace(/^-\s*/, ""));
                 }
             });
 
