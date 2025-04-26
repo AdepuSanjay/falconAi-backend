@@ -211,91 +211,73 @@ app.get("/download-ppt/:topic", async (req, res) => {
     let pptx = new PptxGenJS();
 
     slides.forEach((slide) => {
-      let slidePpt = pptx.addSlide();
+  let slidePpt = pptx.addSlide();
 
-      // Set background (image URL or color)
-      if (slide.theme?.startsWith("http")) {
-        slidePpt.background = { path: slide.theme };
-      } else {
-        slidePpt.background = { color: slide.theme || "#FFFFFF" };
-      }
+  // Set background
+  if (slide.theme?.startsWith("http")) {
+    slidePpt.background = { path: slide.theme };
+  } else {
+    slidePpt.background = { color: slide.theme || "#FFFFFF" };
+  }
 
-      // Add slide title
-      slidePpt.addText(slide.title, {
-        x: 0.5,
-        y: 0.5,
-        w: "80%",
-        fontSize: 23,
-        bold: true,
-        color: slide.titleColor || "#D63384",
-        align: "left",
-        fontFace: "Arial Black",
-      });
+  // Add title
+  slidePpt.addText(slide.title, {
+    x: 0.5,
+    y: 0.5,
+    w: "80%",
+    fontSize: 23,
+    bold: true,
+    color: slide.titleColor || "#D63384",
+    align: "left",
+    fontFace: "Arial Black",
+  });
 
-      // Format content: bullet points and code blocks
-      let formattedContent = slide.content.map((point) => {
-        if (point.startsWith("Code  :")) {
-          return {
-            text: `${point.replace("Code  :", "").trim()}\n`,
-            options: {
-              fontSize: 16,
-              color: slide.contentColor || "#333333",
-              bullet: false,
-              indentLevel: 2,
-              fontFace: "Courier New", // Optional: to make code look like code
-            }
-          };
-        } else {
-          return {
-            text: `• ${point.trim()}\n`, // normal bullet point
-            options: {
-              fontSize: 20,
-              bold: false,
-              color: slide.contentColor || "#333333",
-              bullet: true,
-              bulletChar: "•", // neat bullet symbol
-              indentLevel: 0,
-              fontFace: "Arial",
-            }
-          };
-        }
-      });
+  // Start content lower to avoid overlapping title
+  let currentY = 1.5;
 
-      // Add content with or without image
-      if (slide.image) {
-        const imageWidth = 3;
-        const imageHeight = 5.62;
-        const slideWidth = 10;
-        const margin = 0.5;
-        const textWidth = slideWidth - imageWidth - margin * 2;
+  // Handle with/without image
+  if (slide.image) {
+    const imageWidth = 3;
+    const imageHeight = 5.62;
+    const slideWidth = 10;
+    const margin = 0.5;
+    const textWidth = slideWidth - imageWidth - margin * 2;
 
-        slidePpt.addText(formattedContent, {
-          x: margin,
-          y: margin,
-          w: textWidth,
-          h: imageHeight - margin * 1.8,
-          lineSpacing: 26,
-          align: "left",
-        });
-
-        slidePpt.addImage({
-          path: slide.image,
-          x: slideWidth - imageWidth,
-          y: 0,
-          w: imageWidth,
-          h: imageHeight,
-        });
-      } else {
-        slidePpt.addText(formattedContent, {
-          x: 0.5,
-          y: 1.5,
-          w: "95%",
-          h: 4,
-          lineSpacing: 28,
-          align: "left",
-        });
-      }
+    slidePpt.addImage({
+      path: slide.image,
+      x: slideWidth - imageWidth,
+      y: 0,
+      w: imageWidth,
+      h: imageHeight,
     });
+  }
+
+  // Now loop each content point
+  slide.content.forEach((point) => {
+    const isCodeBlock = point.startsWith("Code  :");
+
+    let textToAdd = isCodeBlock
+      ? point.replace("Code  :", "").trim()
+      : `🔹 ${point}`;
+
+    slidePpt.addText(textToAdd, {
+      x: isCodeBlock ? 1.0 : 0.7,  // code moves right more
+      y: currentY,
+      w: "80%",
+      fontSize: isCodeBlock ? 17 : 20,
+      color: slide.contentColor || "#333333",
+      fontFace: "Courier New",    // nice monospaced font for code
+      bold: isCodeBlock ? false : false,
+      bullet: !isCodeBlock,
+      lineSpacing: 24,
+      align: "left",
+    });
+
+    // Adjust Y for next point
+    currentY += isCodeBlock ? 1.2 : 0.8;
+  });
+});
+
 
     const pptFileName = `${topic.replace(/\s/g, "_")}.pptx`;
     const pptFilePath = path.join("/tmp", pptFileName);
