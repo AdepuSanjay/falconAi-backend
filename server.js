@@ -232,36 +232,28 @@ app.get("/download-ppt/:topic", async (req, res) => {
       });
 
       // Combine bullet points and code blocks
-      let formattedContent = slide.content.flatMap((point) => {
+      let formattedContent = slide.content.map((point) => {
   if (point.startsWith("Code  :")) {
-    // Code block style - more indentation
-    return [
-      {
-        text: `${point.replace("Code  :", "").trim()}\n`,
-        options: {
-          fontSize: 16,
-          color: slide.contentColor || "#333333",
-          indentLevel: 2,   // <-- NEW: Adds right indentation
-        }
+    return {
+      text: `${point.replace("Code  :", "").trim()}\n`,
+      options: {
+        fontSize: 16,
+        color: slide.contentColor || "#333333",
+        indentLevel: 2,
       }
-    ];
+    };
   } else {
-    // Normal bullet point
-    return [
-      {
-        text: `🔹 ${point}\n`,
-        options: {
-          fontSize: 20,
-          bold: false,
-          color: slide.contentColor || "#333333",
-          indentLevel: 0,   // <-- Normal points no indent
-        }
+    return {
+      text: `🔹 ${point}\n`,
+      options: {
+        fontSize: 20,
+        bold: false,
+        color: slide.contentColor || "#333333",
+        indentLevel: 0,
       }
-    ];
+    };
   }
 });
-
-
       // Handle with/without image
       if (slide.image) {
         const imageWidth = 3;
