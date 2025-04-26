@@ -197,8 +197,6 @@ if (!topic) {
 
 
 
-
-
 app.get("/download-ppt/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
@@ -214,14 +212,14 @@ app.get("/download-ppt/:topic", async (req, res) => {
     slides.forEach((slide) => {
       let slidePpt = pptx.addSlide();
 
-      // Set background
+      // Background
       if (slide.theme?.startsWith("http")) {
         slidePpt.background = { path: slide.theme };
       } else {
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
       }
 
-      // Add title
+      // Title
       slidePpt.addText(slide.title, {
         x: 0.5,
         y: 0.3,
@@ -233,7 +231,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
         fontFace: "Arial Black",
       });
 
-      // Separate bullet points and code blocks
+      // Separate bullets and code
       let bulletPoints = [];
       let codeBlocks = [];
 
@@ -254,10 +252,10 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
       let currentY = 1.3;
 
-      // Add bullet points (separately)
+      // Bullet Points
       if (bulletPoints.length > 0) {
         slidePpt.addText(
-          bulletPoints.map((bp) => `• ${bp}`).join("\n"), // Bullet symbol
+          bulletPoints.map((bp) => `• ${bp}`).join("\n"),
           {
             x: margin,
             y: currentY,
@@ -270,27 +268,29 @@ app.get("/download-ppt/:topic", async (req, res) => {
             lineSpacing: 28,
           }
         );
-        currentY += 3.2; // move down for code blocks
+        currentY += 3.2;
       }
 
-      // Add code blocks
+      // Code Blocks (shifted right, top adjusted)
       if (codeBlocks.length > 0) {
         codeBlocks.forEach((code, idx) => {
           slidePpt.addText(code, {
-            x: margin,
-            y: currentY + idx * 1.2, // stack codes below each other
-            w: textAreaWidth,
+            x: margin + 0.5, // Move right by 0.5
+            y: currentY + idx * 1.5, // Small gap between multiple code blocks
+            w: 8, // Limited width (not full width)
             h: 1.5,
             fontFace: "Courier New",
             fontSize: 16,
             color: "#FF5722",
             align: "left",
-            fill: { color: "F1F1F1" }, // Light background for code block
+            fill: { color: "F1F1F1" }, // Light grey background
+            margin: 0.2,
+            valign: "top", // Text starts from top
           });
         });
       }
 
-      // Add image (optional)
+      // Optional Image
       if (hasImage) {
         slidePpt.addImage({
           path: slide.image,
