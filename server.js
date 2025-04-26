@@ -261,13 +261,13 @@ app.get("/download-ppt/:topic", async (req, res) => {
       : `🔹 ${point}`;
 
     slidePpt.addText(textToAdd, {
-      x: isCodeBlock ? 1.0 : 0.7,  // code moves right more
+      x: isCodeBlock ? 1.0 : 0,  // code moves right more
       y: currentY,
       w: "80%",
-      fontSize: isCodeBlock ? 17 : 20,
+      fontSize: isCodeBlock ? 14 : 20,
       color: slide.contentColor || "#333333",
       fontFace: "Courier New",    // nice monospaced font for code
-      bold: isCodeBlock ? false : false,
+      bold: isCodeBlock ? true : false,
       bullet: !isCodeBlock,
       lineSpacing: 24,
       align: "left",
