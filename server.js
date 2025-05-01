@@ -221,8 +221,8 @@ if (slide.theme?.startsWith("http")) {
 }
 
 slidePpt.addText(slide.title, {
-    x: 0.5, y: 0.5, w: "70%",
-    fontSize: 23, bold: true,
+    x: 0.5, y: 0.5, w: "60%",
+    fontSize: 22, bold: true,
     color: slide.titleColor || "#D63384",
     align: "left", fontFace: "Arial Black"
 });
