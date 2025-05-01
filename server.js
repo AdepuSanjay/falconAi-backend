@@ -48,8 +48,6 @@ app.post('/create-order', async (req, res) => {
 });
 
 
-
-
 // Contact form API endpoint
 app.post("/api/contact", async (req, res) => {
     const { name, email, message } = req.body;
@@ -223,7 +221,7 @@ if (slide.theme?.startsWith("http")) {
 }
 
 slidePpt.addText(slide.title, {
-    x: 0.5, y: 0.5, w: "80%",
+    x: 0.5, y: 0.5, w: "70%",
     fontSize: 23, bold: true,
     color: slide.titleColor || "#D63384",
     align: "left", fontFace: "Arial Black"
