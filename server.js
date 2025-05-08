@@ -308,35 +308,29 @@ app.get("/download-ppt/:topic", async (req, res) => {
 
 // Parse AI response
 function parseGeminiResponse(responseText) {
+  try {
+    const slidesRaw = responseText.split('Slide ').slice(1);
     const slides = [];
-    const slideSections = responseText.split("Slide ");
 
-    slideSections.forEach((section) => {
-        const match = section.match(/^(\d+):\s*(.+)/);
-        if (match) {
-            const title = match[2].replace(/\*\*/g, "").trim();
-            const lines = section.split("\n").slice(1).map(line => line.trim());
-            const content = [];
-
-            let isCodeBlock = false;
-
-            lines.forEach(line => {
-                if (line.startsWith("```")) {
-                    isCodeBlock = !isCodeBlock; // Toggle code block state
-                } else if (isCodeBlock) {
-                    if (line) content.push(line); // Keep code lines as they are
-                } else if (line && line !== "**") {
-                    // Remove leading "- " if exists
-                    content.push(line.replace(/^-\s*/, ""));
-                }
-            });
-
-            slides.push({ title, content });
+    slidesRaw.forEach(raw => {
+      const jsonMatch = raw.match(/{[\s\S]+}/);
+      if (jsonMatch) {
+        try {
+          const slide = JSON.parse(jsonMatch[0]);
+          slides.push(slide);
+        } catch (err) {
+          console.warn('Skipping invalid JSON block:', err.message);
         }
+      }
     });
 
-    return slides.length ? { slides } : { error: "Invalid AI response format" };
+    return slides.length ? { slides } : { error: "No valid slides found" };
+  } catch (err) {
+    console.error("Parsing error:", err.message);
+    return { error: "Failed to parse AI response" };
+  }
 }
+
 
 
 
@@ -381,33 +375,66 @@ public class Main {
 `;
     } else {
         prompt = `
-Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+Generate a professional presentation on the topic "${topic}" with exactly ${slidesCount} slides.
+Each slide must follow this structured JSON format:
 
-Slide Structure:
+{
+  "title": "Slide Title",
+  "type": "bullet | chart | table | text | imageText",
+  "content": [bullet points OR paragraph OR chart/table data],
+  "chartType": "bar | pie | line" (only if type is 'chart'),
+  "headers": [array of headers] (only if type is 'table'),
+  "rows": [array of rows] (only if type is 'table'),
+  "image": "optional image URL" (for imageText slides)
+}
 
-1. Slide Title: Format as "Slide X: Title".
-2. Content: Provide **exactly 4 to 5 
-bullet points** explaining key concepts in simple terms. Every slide must have at least 4 points.
-do not exceed 5 bullet points.
-Ensure that the number of points remains consistent across all slides, even if there are more than 14 slides.
+Slide Examples:
 
-Example:
+Slide 1:
+{
+  "title": "Introduction to ${topic}",
+  "type": "text",
+  "content": "This slide introduces the concept of ${topic}, its purpose and importance."
+}
 
-Slide 1: Introduction to ${topic}
+Slide 2:
+{
+  "title": "Key Features of ${topic}",
+  "type": "bullet",
+  "content": [
+    "Feature 1: Explained clearly.",
+    "Feature 2: Explained clearly.",
+    "Feature 3: Explained clearly.",
+    "Feature 4: Explained clearly."
+  ]
+}
 
-- Definition of ${topic}.
-- Importance and real-world applications.
-- How it impacts various industries.
-- Key reasons why ${topic} is relevant today.
-- Future scope and advancements.
+Slide 3:
+{
+  "title": "Market Share by Region",
+  "type": "chart",
+  "chartType": "pie",
+  "content": [
+    { "label": "Asia", "value": 35 },
+    { "label": "North America", "value": 30 },
+    { "label": "Europe", "value": 25 },
+    { "label": "Others", "value": 10 }
+  ]
+}
 
-Slide 2: Key Features
+Slide 4:
+{
+  "title": "Comparison of Tools",
+  "type": "table",
+  "headers": ["Tool", "Features", "Pricing"],
+  "rows": [
+    ["ChatGPT", "Conversational", "$20"],
+    ["Gemini", "Multimodal", "Free"],
+    ["Claude", "Contextual", "Free"]
+  ]
+}
 
-- Feature 1: Explanation.
-- Feature 2: Explanation.
-- Feature 3: Explanation.
-- Feature 4: Explanation.
-- Feature 5: Explanation.
+Ensure proper JSON formatting in each slide.
 `;
     }
 
