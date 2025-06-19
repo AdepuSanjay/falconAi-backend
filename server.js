@@ -28,22 +28,6 @@ key_id: 'your_key_id_here',  // Replace with your actual Razorpay Key ID
 key_secret: 'your_key_secret_here',  // Replace with your actual Razorpay Key Secret
 });
 
-app.post('/create-order', async (req, res) => {
-const { amount, currency } = req.body;
-
-const options = {
-amount: amount * 100, // Convert to paise (₹1 = 100 paise)
-currency,
-receipt: order_rcptid_${Date.now()}
-};
-
-try {
-const order = await razorpay.orders.create(options);
-res.json(order);
-} catch (error) {
-res.status(500).send(error);
-}
-});
 
 // Contact form API endpoint
 app.post("/api/contact", async (req, res) => {
