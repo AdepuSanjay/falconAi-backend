@@ -207,8 +207,16 @@ app.get("/download-ppt/:topic", async (req, res) => {
     const slides = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     let pptx = new PptxGenJS();
 
+    // Helper to detect MIME type from base64 prefix
+    const getMimeType = (base64) => {
+      if (base64.startsWith("/9j/")) return "image/jpeg";
+      if (base64.startsWith("iVBOR")) return "image/png";
+      if (base64.startsWith("R0lGOD")) return "image/gif";
+      return "image/jpeg"; // default fallback
+    };
+
     slides.forEach((slide) => {
-      let slidePpt = pptx.addSlide();
+      const slidePpt = pptx.addSlide();
 
       // Background setup
       if (slide.theme?.startsWith("http")) {
@@ -217,7 +225,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
         slidePpt.background = { color: slide.theme || "#FFFFFF" };
       }
 
-      // Set title width dynamically based on image presence
       const titleWidth = slide.image ? "60%" : "86%";
 
       slidePpt.addText(slide.title, {
@@ -228,10 +235,9 @@ app.get("/download-ppt/:topic", async (req, res) => {
         bold: true,
         color: slide.titleColor || "#D63384",
         align: "left",
-        fontFace: "Calibri" // Updated font
+        fontFace: "Calibri"
       });
 
-      // Format content
       let formattedContent = slide.content.flatMap(point => {
         if (point.includes(":")) {
           const [label, rest] = point.split(/:(.*)/);
@@ -258,13 +264,17 @@ app.get("/download-ppt/:topic", async (req, res) => {
           h: imageHeight - (margin * 1.8),
           fontSize: 15,
           color: slide.contentColor || "#333333",
-          fontFace: "Calibri", // Updated font
+          fontFace: "Calibri",
           lineSpacing: 26,
           align: "left"
         });
 
+        // ✅ Convert raw base64 to valid data URI
+        const mimeType = getMimeType(slide.image);
+        const dataUri = `data:${mimeType};base64,${slide.image}`;
+
         slidePpt.addImage({
-          path: slide.image,
+          data: dataUri,
           x: slideWidth - imageWidth,
           y: 0,
           w: imageWidth,
@@ -278,7 +288,7 @@ app.get("/download-ppt/:topic", async (req, res) => {
           h: 3.5,
           fontSize: 20,
           color: slide.contentColor || "#333333",
-          fontFace: "Calibri", // Updated font
+          fontFace: "Calibri",
           lineSpacing: 28,
           align: "left"
         });
@@ -302,7 +312,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
     res.status(500).json({ error: "Failed to generate PPT" });
   }
 });
-
 
 
 
