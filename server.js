@@ -13,7 +13,8 @@ app.use(cors({
   origin: ["https://www.falconai.space", "http://localhost:5173","https://adepu-sanjay.vercel.app"],
   methods: ["GET", "POST"]
 }));
-app.use(express.json());
+
+app.use(express.json({ limit: '100mb' })); // or '20mb', '50mb', etc. based on your needs
 
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 if (!GOOGLE_GEMINI_API_KEY) {
