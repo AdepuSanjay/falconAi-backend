@@ -36,11 +36,12 @@ const razorpay = new Razorpay({
   key_secret: "your_key_secret_here", // Replace with your actual Razorpay Key Secret
 });
 
+
 // Contact Form
 app.post("/api/contact", async (req, res) => {
-  const { name, email, message } = req.body;
+  const { name, email, phone, message } = req.body;
 
-  if (!name || !email || !message) {
+  if (!name || !email || !phone || !message) {
     return res.status(400).json({ success: false, error: "All fields are required" });
   }
 
@@ -57,7 +58,7 @@ app.post("/api/contact", async (req, res) => {
       from: email,
       to: "adepusanjay444@gmail.com",
       subject: "New Contact Form Submission",
-      text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
+      text: `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nMessage: ${message}`,
     };
 
     await transporter.sendMail(mailOptions);
@@ -67,6 +68,10 @@ app.post("/api/contact", async (req, res) => {
     res.status(500).json({ success: false, error: "Failed to send message" });
   }
 });
+
+
+
+
 
 // Get previous slides
 app.get("/get-previous-slides", (req, res) => {
