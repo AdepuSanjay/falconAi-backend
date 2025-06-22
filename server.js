@@ -16,7 +16,8 @@ app.use(
       "https://www.falconai.space",
       "http://localhost:5173",
       "https://adepu-sanjay.vercel.app",
-"https://firebrik.vercel.app"
+"https://firebrik.vercel.app",
+"https://sparcx.vercel.app"
     ],
     methods: ["GET", "POST"],
   })
