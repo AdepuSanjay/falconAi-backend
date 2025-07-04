@@ -14,7 +14,7 @@ app.use(
   cors({
     origin: [
       "https://www.falconai.space",
-     
+     "https://firebrik-ppt.vercel.app",
       "https://adepu-sanjay.vercel.app", 
 "https://firebrik.vercel.app",
 "https://sparcx.vercel.app"
