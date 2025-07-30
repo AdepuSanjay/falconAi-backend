@@ -71,6 +71,35 @@ app.post("/api/contact", async (req, res) => {
 });
 
 
+// Medical Chatbot Logic (Separate Endpoint) app.post("/medical-chat", async (req, res) => { const { prompt } = req.body;
+
+if (!prompt) { return res.status(400).json({ error: "Prompt is required" }); }
+
+const medicalKeywords = [ "symptoms", "diagnosis", "treatment", "disease", "medicine", "health", "therapy", "anatomy", "pharmacology", "pathology", "nursing", "infection", "injury", "surgery", "physiology", "public health", "clinical", "doctor", "nurse" ];
+
+const isMedicalQuery = medicalKeywords.some((word) => prompt.toLowerCase().includes(word) );
+
+let chatPrompt;
+
+if (isMedicalQuery) { chatPrompt = `You are a medical assistant. Answer the following question with medically accurate and patient-friendly explanations:
+
+${prompt}
+
+If it's about symptoms, explain possible causes.
+
+If it's about treatment, mention standard approaches.
+
+Avoid diagnosing, just provide useful medical knowledge.`; } else { chatPrompt = prompt; }
+
+try { const response = await axios.post( GEMINI_API_URL, { contents: [{ parts: [{ text: chatPrompt }] }] }, { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY }, } );
+
+const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response available.";
+
+res.json({ success: true, response: aiResponse }); } catch (error) { console.error("Medical Chat Error:", error.message); res.status(500).json({ error: "AI service failed to respond." }); } });
+
+
+
+
 
 
 
