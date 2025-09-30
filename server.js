@@ -14,9 +14,8 @@ app.use(
   cors({
     origin: [
       "https://www.falconai.space",
-     "https://firebrik.vercel.app",
-  
-"https://sparcx.vercel.app"
+      "https://firebrik.vercel.app",
+      "https://sparcx.vercel.app"
     ],
     methods: ["GET", "POST"],
   })
@@ -29,18 +28,61 @@ if (!GOOGLE_GEMINI_API_KEY) {
   process.exit(1);
 }
 
-
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
-
+// Use the correct Gemini API endpoint
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`;
 
 const razorpay = new Razorpay({
-  key_id: "your_key_id_here", // Replace with your actual Razorpay Key ID
-  key_secret: "your_key_secret_here", // Replace with your actual Razorpay Key Secret
+  key_id: process.env.RAZORPAY_KEY_ID || "your_key_id_here",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "your_key_secret_here",
 });
 
+// Improved Gemini API call function
+async function callGeminiAPI(prompt) {
+  try {
+    const response = await axios.post(
+      GEMINI_API_URL,
+      {
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 30000 // 30 second timeout
+      }
+    );
 
-// Contact Form
+    if (response.data && response.data.candidates && response.data.candidates[0]) {
+      return response.data.candidates[0].content.parts[0].text;
+    } else {
+      throw new Error("Unexpected response format from Gemini API");
+    }
+  } catch (error) {
+    console.error("Gemini API Error Details:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: GEMINI_API_URL
+    });
+    
+    if (error.response) {
+      // Server responded with error status
+      throw new Error(`Gemini API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+    } else if (error.request) {
+      // Request was made but no response received
+      throw new Error("No response received from Gemini API. Check your network connection.");
+    } else {
+      // Other errors
+      throw new Error(`Gemini API call failed: ${error.message}`);
+    }
+  }
+}
+
+// Contact Form (unchanged)
 app.post("/api/contact", async (req, res) => {
   const { name, email, phone, message } = req.body;
 
@@ -72,44 +114,217 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+// Updated Medical Chat endpoint
+app.post("/medical-chat", async (req, res) => {
+  const { prompt } = req.body;
 
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required" });
+  }
 
+  const medicalKeywords = [
+    "symptoms", "diagnosis", "treatment", "disease", "medicine", 
+    "health", "therapy", "anatomy", "pharmacology", "pathology", 
+    "nursing", "infection", "injury", "surgery", "physiology", 
+    "public health", "clinical", "doctor", "nurse"
+  ];
 
+  const isMedicalQuery = medicalKeywords.some((word) => 
+    prompt.toLowerCase().includes(word)
+  );
 
+  let chatPrompt;
 
- app.post("/medical-chat", async (req, res) => { const { prompt } = req.body;
-
-if (!prompt) { return res.status(400).json({ error: "Prompt is required" }); }
-
-const medicalKeywords = [ "symptoms", "diagnosis", "treatment", "disease", "medicine", "health", "therapy", "anatomy", "pharmacology", "pathology", "nursing", "infection", "injury", "surgery", "physiology", "public health", "clinical", "doctor", "nurse" ];
-
-const isMedicalQuery = medicalKeywords.some((word) => prompt.toLowerCase().includes(word) );
-
-let chatPrompt;
-
-if (isMedicalQuery) { chatPrompt = `You are a medical assistant. Answer the following question with medically accurate and patient-friendly explanations:
+  if (isMedicalQuery) {
+    chatPrompt = `You are a medical assistant. Answer the following question with medically accurate and patient-friendly explanations:
 
 ${prompt}
 
 If it's about symptoms, explain possible causes.
-
 If it's about treatment, mention standard approaches.
+Avoid diagnosing, just provide useful medical knowledge.`;
+  } else {
+    chatPrompt = prompt;
+  }
 
-Avoid diagnosing, just provide useful medical knowledge.`; } else { chatPrompt = prompt; }
+  try {
+    const aiResponse = await callGeminiAPI(chatPrompt);
+    res.json({ success: true, response: aiResponse });
+  } catch (error) {
+    console.error("Medical Chat Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-try { const response = await axios.post( GEMINI_API_URL, { contents: [{ parts: [{ text: chatPrompt }] }] }, { headers: { "Content-Type": "application/json" }, params: { key: GOOGLE_GEMINI_API_KEY }, } );
+// Updated Translate endpoint
+app.post("/translate", async (req, res) => {
+  try {
+    const { text, sourceLanguage, targetLanguage } = req.body;
+    if (!text || !targetLanguage) {
+      return res.status(400).json({ error: "Text and targetLanguage are required" });
+    }
 
-const aiResponse = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response available.";
+    let prompt = sourceLanguage
+      ? `Translate the following text from ${sourceLanguage} to ${targetLanguage}: ${text}`
+      : `Translate the following text to ${targetLanguage}: ${text}`;
 
-res.json({ success: true, response: aiResponse }); } catch (error) { console.error("Medical Chat Error:", error.message); res.status(500).json({ error: "AI service failed to respond." }); } });
+    const translatedText = await callGeminiAPI(prompt);
+    res.json({ success: true, translatedText });
+  } catch (error) {
+    console.error("Translation Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
+// Updated Generate PPT endpoint
+app.post("/generate-ppt", async (req, res) => {
+  const { topic, slidesCount } = req.body;
 
+  if (!topic || !slidesCount) {
+    return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
+  }
 
+  const isCodingTopic = [
+    "Java", "Python", "JavaScript", "C++", "C#", "React", "Node.js", "PHP",
+  ].some((lang) => topic.toLowerCase().includes(lang.toLowerCase()));
 
+  let prompt;
 
+  if (isCodingTopic) {
+    prompt = `
+Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
 
+Slide Structure:
 
-// Get previous slides
+1. Slide Title: Format as "Slide X: Title".
+
+2. Explanation: Use clear, structured bullet points (max 3 per slide).
+
+3. Code Snippets: Include only one small example per slide, not exceeding 4 lines.
+
+Example:
+
+Slide 2: Hello World Example
+
+Basic syntax of ${topic}.
+
+How to print output.
+
+Entry point of the program.
+
+\`\`\`${topic.toLowerCase()}
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, World!");
+  }
+}
+\`\`\`
+`;
+  } else {
+    prompt = `
+Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
+
+Slide Structure:
+
+1. Slide Title: Format as "Slide X: Title".
+
+2. Content: Provide exactly 4 to 5 bullet points explaining key concepts in simple terms. 
+Ensure every slide has 4-5 points even if more than 14 slides.
+
+Example:
+
+Slide 1: Introduction to ${topic}
+
+Definition of ${topic}.
+
+Importance and real-world applications.
+
+How it impacts various industries.
+
+Key reasons why ${topic} is relevant today.
+
+Future scope and advancements.
+`;
+  }
+
+  try {
+    const aiText = await callGeminiAPI(prompt);
+    const formattedSlides = parseGeminiResponse(aiText);
+
+    if (formattedSlides.error) {
+      return res.status(500).json({ error: "Unexpected AI response. Please try again." });
+    }
+
+    return res.json(formattedSlides);
+  } catch (error) {
+    console.error("Error generating PPT:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Updated AI Search endpoint
+app.post("/ai-search", async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query) return res.status(400).json({ error: "Query is required" });
+
+    const lowerQuery = query.toLowerCase();
+    const identityQuestions = [
+      "who are you",
+      "who built you",
+      "who developed you",
+      "what is your name",
+      "who created you",
+    ];
+
+    if (identityQuestions.some((q) => lowerQuery.includes(q))) {
+      return res.json({
+        query,
+        response: "I am a large model of Falcon, developed by Adepu Sanjay.",
+      });
+    }
+
+    const aiResponse = await callGeminiAPI(query);
+    res.json({ query, response: aiResponse });
+  } catch (error) {
+    console.error("AI Search Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Keep all your existing helper functions and other endpoints the same
+// (parseGeminiResponse, get-previous-slides, get-slides, update-slides, download-ppt)
+
+function parseGeminiResponse(responseText) {
+  const slides = [];
+  const slideSections = responseText.split("Slide ");
+
+  slideSections.forEach((section) => {
+    const match = section.match(/^(\d+):\s*(.+)/);
+    if (match) {
+      const title = match[2].replace(/\*\*/g, "").trim();
+      const lines = section.split("\n").slice(1).map((line) => line.trim());
+      const content = [];
+      let isCodeBlock = false;
+
+      lines.forEach((line) => {
+        if (line.startsWith("```")) {
+          isCodeBlock = !isCodeBlock;
+        } else if (isCodeBlock) {
+          if (line) content.push(line);
+        } else if (line && line !== "**") {
+          content.push(line.replace(/^-\s*/, ""));
+        }
+      });
+
+      slides.push({ title, content });
+    }
+  });
+
+  return slides.length ? { slides } : { error: "Invalid AI response format" };
+}
+
+// Add these endpoints back (they were working fine)
 app.get("/get-previous-slides", (req, res) => {
   try {
     const files = fs.readdirSync("/tmp").filter((file) => file.endsWith(".json"));
@@ -125,7 +340,6 @@ app.get("/get-previous-slides", (req, res) => {
   }
 });
 
-// Fetch specific slides
 app.get("/get-slides/:topic", (req, res) => {
   try {
     const topic = req.params.topic;
@@ -143,35 +357,6 @@ app.get("/get-slides/:topic", (req, res) => {
   }
 });
 
-// Translate Text
-app.post("/translate", async (req, res) => {
-  try {
-    const { text, sourceLanguage, targetLanguage } = req.body;
-    if (!text || !targetLanguage) {
-      return res.status(400).json({ error: "Text and targetLanguage are required" });
-    }
-
-    let prompt = sourceLanguage
-      ? `Translate the following text from ${sourceLanguage} to ${targetLanguage}: ${text}`
-      : `Translate the following text to ${targetLanguage}: ${text}`;
-
-    const response = await axios.post(
-      `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
-      { contents: [{ parts: [{ text: prompt }] }] },
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    const translatedText =
-      response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Translation failed";
-
-    res.json({ success: true, translatedText });
-  } catch (error) {
-    console.error("Translation Error:", error.message);
-    res.status(500).json({ error: "Translation failed" });
-  }
-});
-
-// Update slides
 app.post("/update-slides", (req, res) => {
   try {
     let { topic, slides, useImages } = req.body;
@@ -200,7 +385,6 @@ app.post("/update-slides", (req, res) => {
   }
 });
 
-// Download PPT
 app.get("/download-ppt/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
@@ -294,174 +478,6 @@ app.get("/download-ppt/:topic", async (req, res) => {
   } catch (error) {
     console.error("Error generating PPT:", error.message);
     res.status(500).json({ error: "Failed to generate PPT" });
-  }
-});
-
-// AI Response Parser
-function parseGeminiResponse(responseText) {
-  const slides = [];
-  const slideSections = responseText.split("Slide ");
-
-  slideSections.forEach((section) => {
-    const match = section.match(/^(\d+):\s*(.+)/);
-    if (match) {
-      const title = match[2].replace(/\*\*/g, "").trim();
-      const lines = section.split("\n").slice(1).map((line) => line.trim());
-      const content = [];
-      let isCodeBlock = false;
-
-      lines.forEach((line) => {
-        if (line.startsWith("```")) {
-          isCodeBlock = !isCodeBlock;
-        } else if (isCodeBlock) {
-          if (line) content.push(line);
-        } else if (line && line !== "**") {
-          content.push(line.replace(/^-\s*/, ""));
-        }
-      });
-
-      slides.push({ title, content });
-    }
-  });
-
-  return slides.length ? { slides } : { error: "Invalid AI response format" };
-}
-
-// Generate PPT using AI
-app.post("/generate-ppt", async (req, res) => {
-  const { topic, slidesCount } = req.body;
-
-  if (!topic || !slidesCount) {
-    return res.status(400).json({ error: "Missing required fields: topic and slidesCount" });
-  }
-
-  const isCodingTopic = [
-    "Java",
-    "Python",
-    "JavaScript",
-    "C++",
-    "C#",
-    "React",
-    "Node.js",
-    "PHP",
-  ].some((lang) => topic.toLowerCase().includes(lang.toLowerCase()));
-
-  let prompt;
-
-  if (isCodingTopic) {
-    prompt = `
-Generate a PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-
-Slide Structure:
-
-1. Slide Title: Format as "Slide X: Title".
-
-2. Explanation: Use clear, structured bullet points (max 3 per slide).
-
-3. Code Snippets: Include only one small example per slide, not exceeding 4 lines.
-
-Example:
-
-Slide 2: Hello World Example
-
-Basic syntax of ${topic}.
-
-How to print output.
-
-Entry point of the program.
-
-\`\`\`${topic.toLowerCase()}
-public class Main {
-  public static void main(String[] args) {
-    System.out.println("Hello, World!");
-  }
-}
-\`\`\`
-`;
-  } else {
-    prompt = `
-Generate a structured PowerPoint presentation on "${topic}" with exactly ${slidesCount} slides.
-
-Slide Structure:
-
-1. Slide Title: Format as "Slide X: Title".
-
-2. Content: Provide exactly 4 to 5 bullet points explaining key concepts in simple terms. 
-Ensure every slide has 4-5 points even if more than 14 slides.
-
-Example:
-
-Slide 1: Introduction to ${topic}
-
-Definition of ${topic}.
-
-Importance and real-world applications.
-
-How it impacts various industries.
-
-Key reasons why ${topic} is relevant today.
-
-Future scope and advancements.
-`;
-  }
-
-  try {
-    const geminiResponse = await axios.post(
-      `${GEMINI_API_URL}?key=${GOOGLE_GEMINI_API_KEY}`,
-      { contents: [{ parts: [{ text: prompt }] }] }
-    );
-
-    const aiText = geminiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const formattedSlides = parseGeminiResponse(aiText);
-
-    if (formattedSlides.error) {
-      return res.status(500).json({ error: "Unexpected AI response. Please try again." });
-    }
-
-    return res.json(formattedSlides);
-  } catch (error) {
-    console.error("Error calling Gemini API:", error.message);
-    return res.status(500).json({ error: "Failed to generate slides from AI." });
-  }
-});
-
-// AI-Powered Search
-app.post("/ai-search", async (req, res) => {
-  try {
-    const { query } = req.body;
-    if (!query) return res.status(400).json({ error: "Query is required" });
-
-    const lowerQuery = query.toLowerCase();
-    const identityQuestions = [
-      "who are you",
-      "who built you",
-      "who developed you",
-      "what is your name",
-      "who created you",
-    ];
-
-    if (identityQuestions.some((q) => lowerQuery.includes(q))) {
-      return res.json({
-        query,
-        response: "I am a large model of Falcon, developed by Adepu Sanjay.",
-      });
-    }
-
-    const response = await axios.post(
-      GEMINI_API_URL,
-      { contents: [{ parts: [{ text: query }] }] },
-      {
-        headers: { "Content-Type": "application/json" },
-        params: { key: GOOGLE_GEMINI_API_KEY },
-      }
-    );
-
-    const aiResponse =
-      response?.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No relevant information found.";
-    res.json({ query, response: aiResponse });
-  } catch (error) {
-    console.error("AI Search Error:", error.message);
-    res.status(500).json({ error: "Failed to fetch search results" });
   }
 });
 
