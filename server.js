@@ -29,8 +29,10 @@ if (!GOOGLE_GEMINI_API_KEY) {
   process.exit(1);
 }
 
+
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+
 
 const razorpay = new Razorpay({
   key_id: "your_key_id_here", // Replace with your actual Razorpay Key ID
