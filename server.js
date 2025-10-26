@@ -32,7 +32,7 @@ if (!GEMINI_API_KEY) {
   console.error("❌ GOOGLE_GEMINI_API_KEY missing in .env");
   process.exit(1);
 }
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash";
 
 const razorpay = new Razorpay({
   key_id: "your_key_id_here",
